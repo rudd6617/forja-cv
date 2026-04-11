@@ -68,8 +68,12 @@ function stripHtmlTags(text: string): string {
   return text.replace(/<[^>]*>?/g, '')
 }
 
-export const onRequestPost: PagesFunction<Env> = async (context) => {
-  const { VLLM_API_URL, VLLM_MODEL } = context.env
+async function handleAnalyze(request: Request, env: Env): Promise<Response> {
+  if (request.method !== 'POST') {
+    return Response.json({ error: 'Method not allowed' }, { status: 405 })
+  }
+
+  const { VLLM_API_URL, VLLM_MODEL } = env
 
   if (!VLLM_API_URL || !validateUrl(VLLM_API_URL)) {
     return Response.json(
@@ -80,7 +84,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   let body: unknown
   try {
-    body = await context.request.json()
+    body = await request.json()
   } catch {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
@@ -143,7 +147,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const parsed = JSON.parse(content)
 
-    // Sanitize LLM output — strip any HTML from suggestion text
     if (Array.isArray(parsed.suggestions)) {
       parsed.suggestions = parsed.suggestions.map(
         (s: Record<string, unknown>) => ({
@@ -163,3 +166,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     )
   }
 }
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url)
+
+    if (url.pathname === '/api/analyze') {
+      return handleAnalyze(request, env)
+    }
+
+    return new Response(null, { status: 404 })
+  },
+} satisfies ExportedHandler<Env>
