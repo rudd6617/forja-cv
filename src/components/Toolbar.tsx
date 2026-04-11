@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import {
   FONT_OPTIONS,
   COLOR_THEMES,
@@ -69,6 +69,7 @@ export function Toolbar({
 }: ToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { user, isLoading, signIn, signOut } = useAuth()
+  const [importError, setImportError] = useState<string | null>(null)
 
   const handleExportPDF = () => {
     window.print()
@@ -88,8 +89,9 @@ export function Toolbar({
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    setImportError(null)
     if (file.size > 1_000_000) {
-      alert('File too large (max 1 MB)')
+      setImportError('File too large (max 1 MB)')
       e.target.value = ''
       return
     }
@@ -98,7 +100,7 @@ export function Toolbar({
       try {
         onImportCvicream(reader.result as string)
       } catch (err) {
-        alert(err instanceof Error ? err.message : 'Import failed')
+        setImportError(err instanceof Error ? err.message : 'Import failed')
       }
     }
     reader.readAsText(file)
@@ -107,6 +109,12 @@ export function Toolbar({
 
   return (
     <div className="no-print fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-50">
+      {importError && (
+        <div className="px-4 py-2 bg-red-50 border-b border-red-200 text-xs text-red-700 flex items-center justify-between">
+          <span>{importError}</span>
+          <button onClick={() => setImportError(null)} className="text-red-400 hover:text-red-600 cursor-pointer ml-2">✕</button>
+        </div>
+      )}
       <div className="px-4 lg:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h1 className="text-base lg:text-lg font-bold text-gray-900">CV Rabbit</h1>
@@ -127,6 +135,7 @@ export function Toolbar({
                 key={l.value}
                 onClick={() => onLayoutChange(l.value)}
                 title={l.label}
+                aria-label={`Layout: ${l.label}`}
                 className="p-1 cursor-pointer rounded hover:bg-gray-100"
               >
                 <LayoutIcon type={l.value} active={layout === l.value} />
@@ -152,6 +161,7 @@ export function Toolbar({
                 key={t.value}
                 onClick={() => onColorChange(t.value)}
                 title={t.label}
+                aria-label={`Color theme: ${t.label}`}
                 className={`w-5 h-5 rounded-full border-2 cursor-pointer ${
                   colorTheme === t.value ? 'border-gray-900 scale-110' : 'border-gray-300'
                 }`}

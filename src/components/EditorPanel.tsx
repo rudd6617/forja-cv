@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { ResumeData, ResumeItem, SectionKey } from '../types/resume'
 import { stripHtml, wrapHtml } from '../utils/html'
 import { QuillEditor } from './QuillEditor'
@@ -38,6 +38,7 @@ function SectionHeader({
   return (
     <button
       onClick={onToggle}
+      aria-expanded={isOpen}
       className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 border-b border-gray-200 text-sm font-semibold text-gray-700 cursor-pointer"
     >
       {title}
@@ -133,7 +134,6 @@ function ListSectionEditor({
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
-  const dragOverRef = useRef<number | null>(null)
 
   const handleDragStart = (i: number) => {
     setDragIndex(i)
@@ -141,10 +141,7 @@ function ListSectionEditor({
 
   const handleDragOver = (e: React.DragEvent, i: number) => {
     e.preventDefault()
-    if (dragOverRef.current !== i) {
-      dragOverRef.current = i
-      setDragOverIndex(i)
-    }
+    if (dragOverIndex !== i) setDragOverIndex(i)
   }
 
   const handleDrop = (targetIndex: number) => {
@@ -168,7 +165,6 @@ function ListSectionEditor({
   const handleDragEnd = () => {
     setDragIndex(null)
     setDragOverIndex(null)
-    dragOverRef.current = null
   }
 
   return (
@@ -190,17 +186,19 @@ function ListSectionEditor({
           }`}
         >
           <div className="flex items-center justify-between px-3 py-2 bg-gray-50">
-            <span className="text-gray-400 cursor-grab active:cursor-grabbing mr-2 select-none">⠿</span>
+            <span aria-label="Drag to reorder" role="img" className="text-gray-400 cursor-grab active:cursor-grabbing mr-2 select-none">⠿</span>
             <button
               onClick={() =>
                 setExpandedIndex(expandedIndex === i ? null : i)
               }
+              aria-expanded={expandedIndex === i}
               className="text-sm font-medium text-gray-700 truncate flex-1 text-left cursor-pointer"
             >
               {stripHtml(item.title || item.paragraph || `Item ${i + 1}`)}
             </button>
             <button
               onClick={() => removeSectionItem(sectionKey, i)}
+              aria-label="Remove item"
               className="px-1.5 py-0.5 text-xs text-red-400 hover:text-red-600 cursor-pointer shrink-0 ml-2"
             >
               ✕

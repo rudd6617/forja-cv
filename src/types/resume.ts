@@ -34,16 +34,6 @@ export interface SummarySection {
   paragraph: string
 }
 
-export interface ToolbarState {
-  fontFamily: string
-  layout: string
-  color: string
-  fontSize: string
-  topPanelWidth: [number, number]
-  leftPanelWidth: [number, number]
-  rightPanelWidth: [number, number]
-}
-
 export const SECTION_KEYS = [
   'experience', 'education', 'contact', 'social',
   'project', 'skill', 'certificate',
@@ -53,10 +43,7 @@ export type SectionKey = (typeof SECTION_KEYS)[number]
 
 export interface ResumeData {
   title: string
-  toolbar: {
-    currentState: ToolbarState
-    noteList: unknown[]
-  }
+  toolbar?: unknown
   user: {
     template: number
     splitIndex: number

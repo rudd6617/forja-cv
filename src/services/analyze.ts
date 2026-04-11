@@ -83,8 +83,8 @@ export function mockAnalyzeJD(
                   section: 'summary',
                   field: 'paragraph',
                   original: request.resume.summary,
-                  suggested: `${request.resume.summary} 具備 ${missing.join('、')} 相關經驗。`,
-                  reason: `加入 JD 中要求但履歷未提及的關鍵字：${missing.join(', ')}`,
+                  suggested: `${request.resume.summary} Experienced with ${missing.join(', ')}.`,
+                  reason: `Add missing JD keywords: ${missing.join(', ')}`,
                 },
               ]
             : [],

@@ -280,6 +280,9 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
     return Response.json({ error: 'Method not allowed' }, { status: 405 })
   }
 
+  const authResult = await authenticate(request, env)
+  if (authResult instanceof Response) return authResult
+
   const { VLLM_API_URL, VLLM_MODEL } = env
 
   if (!VLLM_API_URL || !validateUrl(VLLM_API_URL)) {
@@ -328,6 +331,7 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
   const response = await fetch(`${VLLM_API_URL}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(60_000),
     body: JSON.stringify({
       model: VLLM_MODEL || 'default',
       messages: [

@@ -56,7 +56,7 @@ body {
 @media print {
   @page {
     size: A4;
-    margin: 0;
+    margin: 10mm 0;
   }
 
   body {
@@ -82,11 +82,24 @@ body {
     break-inside: avoid;
   }
 
+  .resume-content ul,
+  .resume-content ol {
+    break-inside: avoid;
+  }
+
   h3 {
     break-after: avoid;
   }
 
+  h4 {
+    break-after: avoid;
+  }
+
   .sidebar-section {
+    break-inside: avoid;
+  }
+
+  .education-entry {
     break-inside: avoid;
   }
 }

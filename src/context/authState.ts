@@ -13,6 +13,7 @@ export interface AuthState {
   isLoading: boolean
   signIn: () => void
   signOut: () => void
+  clearAuth: () => void
 }
 
 export const AuthContext = createContext<AuthState | null>(null)

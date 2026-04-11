@@ -14,18 +14,6 @@ import * as api from './services/resumeApi'
 
 const EMPTY_RESUME: ResumeData = {
   title: 'New Resume',
-  toolbar: {
-    currentState: {
-      fontFamily: 'font-gill-sans',
-      layout: 'layout-right',
-      color: 'default',
-      fontSize: 'default',
-      topPanelWidth: [75, 25],
-      leftPanelWidth: [25, 75],
-      rightPanelWidth: [75, 25],
-    },
-    noteList: [],
-  },
   user: {
     template: 1,
     splitIndex: 2,

@@ -14,15 +14,18 @@ export function ResumeList({ currentId, onSelect, onNew, onDelete }: ResumeListP
   const { idToken } = useAuth()
   const [resumes, setResumes] = useState<ResumeSummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     if (!idToken) return
     setLoading(true)
+    setError(null)
     try {
       const list = await api.listResumes(idToken)
       setResumes(list)
-    } catch {
+    } catch (err) {
       setResumes([])
+      setError(err instanceof Error ? err.message : 'Failed to load resumes')
     } finally {
       setLoading(false)
     }
@@ -32,12 +35,14 @@ export function ResumeList({ currentId, onSelect, onNew, onDelete }: ResumeListP
 
   const handleDelete = async (id: string) => {
     if (!idToken) return
+    if (!confirm('Delete this resume? This cannot be undone.')) return
+    setError(null)
     try {
       await api.deleteResume(idToken, id)
       onDelete(id)
       refresh()
-    } catch {
-      // ignore
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete resume')
     }
   }
 
@@ -47,6 +52,11 @@ export function ResumeList({ currentId, onSelect, onNew, onDelete }: ResumeListP
 
   return (
     <div className="p-4 space-y-2">
+      {error && (
+        <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+          {error}
+        </div>
+      )}
       <button
         onClick={onNew}
         className="w-full py-2 text-sm text-gray-500 border border-dashed border-gray-300 rounded hover:border-gray-400 hover:text-gray-700 cursor-pointer"
