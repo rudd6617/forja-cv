@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { ResumeData, ResumeItem, SectionKey } from '../types/resume'
 import { stripHtml, wrapHtml } from '../utils/html'
 import { QuillEditor } from './QuillEditor'
@@ -131,12 +131,66 @@ function ListSectionEditor({
   moveSectionItem: EditorPanelProps['moveSectionItem']
 }) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const dragOverRef = useRef<number | null>(null)
+
+  const handleDragStart = (i: number) => {
+    setDragIndex(i)
+  }
+
+  const handleDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault()
+    if (dragOverRef.current !== i) {
+      dragOverRef.current = i
+      setDragOverIndex(i)
+    }
+  }
+
+  const handleDrop = (targetIndex: number) => {
+    if (dragIndex !== null && dragIndex !== targetIndex) {
+      moveSectionItem(sectionKey, dragIndex, targetIndex)
+      if (expandedIndex !== null) {
+        if (expandedIndex === dragIndex) {
+          setExpandedIndex(targetIndex)
+        } else {
+          let newIndex = expandedIndex
+          if (expandedIndex > dragIndex) newIndex--
+          if (newIndex >= targetIndex) newIndex++
+          setExpandedIndex(newIndex)
+        }
+      }
+    }
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    setDragIndex(null)
+    setDragOverIndex(null)
+    dragOverRef.current = null
+  }
 
   return (
     <div className="p-4 space-y-3">
       {section.list.map((item, i) => (
-        <div key={item.id} className="border border-gray-200 rounded">
+        <div
+          key={item.id}
+          draggable
+          onDragStart={() => handleDragStart(i)}
+          onDragOver={(e) => handleDragOver(e, i)}
+          onDrop={() => handleDrop(i)}
+          onDragEnd={handleDragEnd}
+          className={`border rounded transition-all ${
+            dragIndex === i
+              ? 'opacity-40 border-gray-300'
+              : dragOverIndex === i
+                ? 'border-blue-400 shadow-sm'
+                : 'border-gray-200'
+          }`}
+        >
           <div className="flex items-center justify-between px-3 py-2 bg-gray-50">
+            <span className="text-gray-400 cursor-grab active:cursor-grabbing mr-2 select-none">⠿</span>
             <button
               onClick={() =>
                 setExpandedIndex(expandedIndex === i ? null : i)
@@ -145,28 +199,12 @@ function ListSectionEditor({
             >
               {stripHtml(item.title || item.paragraph || `Item ${i + 1}`)}
             </button>
-            <div className="flex items-center gap-1 shrink-0 ml-2">
-              <button
-                onClick={() => moveSectionItem(sectionKey, i, i - 1)}
-                disabled={i === 0}
-                className="px-1.5 py-0.5 text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30 cursor-pointer disabled:cursor-default"
-              >
-                ↑
-              </button>
-              <button
-                onClick={() => moveSectionItem(sectionKey, i, i + 1)}
-                disabled={i === section.list.length - 1}
-                className="px-1.5 py-0.5 text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30 cursor-pointer disabled:cursor-default"
-              >
-                ↓
-              </button>
-              <button
-                onClick={() => removeSectionItem(sectionKey, i)}
-                className="px-1.5 py-0.5 text-xs text-red-400 hover:text-red-600 cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+            <button
+              onClick={() => removeSectionItem(sectionKey, i)}
+              className="px-1.5 py-0.5 text-xs text-red-400 hover:text-red-600 cursor-pointer shrink-0 ml-2"
+            >
+              ✕
+            </button>
           </div>
           {expandedIndex === i && (
             <div className="p-3 space-y-3">

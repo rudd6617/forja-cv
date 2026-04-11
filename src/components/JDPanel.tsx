@@ -1,24 +1,51 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ResumeData } from '../types/resume'
 import type { AnalysisResult, Suggestion } from '../types/analysis'
 import { analyzeJD, mockAnalyzeJD } from '../services/analyze'
+
+const HISTORY_KEY = 'cv-rabbit-jd-history'
+const MAX_HISTORY = 20
+
+interface HistoryEntry {
+  jd: string
+  result: AnalysisResult
+  date: string
+}
+
+function loadHistory(): HistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY)
+    return raw ? (JSON.parse(raw) as HistoryEntry[]) : []
+  } catch {
+    return []
+  }
+}
+
+function saveHistory(entries: HistoryEntry[]) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, MAX_HISTORY)))
+}
+
+function scoreColorClass(score: number): string {
+  if (score >= 70) return 'text-green-700'
+  if (score >= 40) return 'text-yellow-700'
+  return 'text-red-700'
+}
 
 interface JDPanelProps {
   data: ResumeData
   onApplySuggestion: (suggestion: Suggestion) => void
 }
 
-function ScoreBadge({ score }: { score: number }) {
-  const color =
-    score >= 70
-      ? 'text-green-700 bg-green-50 border-green-200'
-      : score >= 40
-        ? 'text-yellow-700 bg-yellow-50 border-yellow-200'
-        : 'text-red-700 bg-red-50 border-red-200'
+function scoreBgClass(score: number): string {
+  if (score >= 70) return 'bg-green-50 border-green-200'
+  if (score >= 40) return 'bg-yellow-50 border-yellow-200'
+  return 'bg-red-50 border-red-200'
+}
 
+function ScoreBadge({ score }: { score: number }) {
   return (
     <div
-      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-semibold ${color}`}
+      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-semibold ${scoreColorClass(score)} ${scoreBgClass(score)}`}
     >
       ATS Match: {score}%
     </div>
@@ -110,10 +137,16 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [appliedIndices, setAppliedIndices] = useState<Set<number>>(
-    new Set(),
-  )
+  const [appliedIndices, setAppliedIndices] = useState<Set<number>>(new Set())
   const [useMock, setUseMock] = useState(true)
+  const [history, setHistory] = useState<HistoryEntry[]>(loadHistory)
+  const [showHistory, setShowHistory] = useState(false)
+  const isFirstRender = useRef(true)
+
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return }
+    saveHistory(history)
+  }, [history])
 
   const handleAnalyze = async () => {
     if (!jdText.trim()) return
@@ -126,6 +159,10 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
       const fn = useMock ? mockAnalyzeJD : analyzeJD
       const res = await fn(jdText, data)
       setResult(res)
+      setHistory((prev) => [
+        { jd: jdText.trim(), result: res, date: new Date().toISOString() },
+        ...prev.filter((h) => h.jd !== jdText.trim()),
+      ])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed')
     } finally {
@@ -137,6 +174,18 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
     onApplySuggestion(suggestion)
     setAppliedIndices((prev) => new Set(prev).add(index))
   }
+
+  const handleLoadHistory = useCallback((entry: HistoryEntry) => {
+    setJdText(entry.jd)
+    setResult(entry.result)
+    setAppliedIndices(new Set())
+    setShowHistory(false)
+    setError(null)
+  }, [])
+
+  const handleClearHistory = useCallback(() => {
+    setHistory([])
+  }, [])
 
   return (
     <div className="p-4 space-y-4">
@@ -158,13 +207,60 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y"
       />
 
-      <button
-        onClick={handleAnalyze}
-        disabled={loading || !jdText.trim()}
-        className="w-full py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 cursor-pointer disabled:cursor-default"
-      >
-        {loading ? 'Analyzing...' : 'Analyze JD'}
-      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={handleAnalyze}
+          disabled={loading || !jdText.trim()}
+          className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 cursor-pointer disabled:cursor-default"
+        >
+          {loading ? 'Analyzing...' : 'Analyze JD'}
+        </button>
+        {history.length > 0 && (
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
+          >
+            History ({history.length})
+          </button>
+        )}
+      </div>
+
+      {showHistory && history.length > 0 && (
+        <div className="border border-gray-200 rounded-lg">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gray-50">
+            <span className="text-xs font-semibold text-gray-500">Analysis History</span>
+            <button
+              onClick={handleClearHistory}
+              className="text-xs text-red-400 hover:text-red-600 cursor-pointer"
+            >
+              Clear all
+            </button>
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {history.map((entry, i) => (
+              <button
+                key={entry.date}
+                onClick={() => handleLoadHistory(entry)}
+                className={`w-full text-left px-3 py-2 hover:bg-gray-50 cursor-pointer ${
+                  i < history.length - 1 ? 'border-b border-gray-100' : ''
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-700 truncate max-w-[70%]">
+                    {entry.jd.substring(0, 60)}...
+                  </span>
+                  <span className={`text-xs font-semibold ${scoreColorClass(entry.result.score)}`}>
+                    {entry.result.score}%
+                  </span>
+                </div>
+                <div className="text-[10px] text-gray-400 mt-0.5">
+                  {new Date(entry.date).toLocaleDateString()} {new Date(entry.date).toLocaleTimeString()}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
