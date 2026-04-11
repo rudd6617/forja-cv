@@ -48,5 +48,13 @@ export const COLOR_THEMES = [
   },
 ] as const
 
+export const LAYOUT_OPTIONS = [
+  { value: 'right-sidebar', label: 'Right Sidebar' },
+  { value: 'left-sidebar', label: 'Left Sidebar' },
+  { value: 'top-header', label: 'Top Header' },
+  { value: 'single-column', label: 'Single Column' },
+] as const
+
 export type FontValue = (typeof FONT_OPTIONS)[number]['value']
 export type ColorValue = (typeof COLOR_THEMES)[number]['value']
+export type LayoutValue = (typeof LAYOUT_OPTIONS)[number]['value']

@@ -5,6 +5,7 @@ import {
   COLOR_THEMES,
   type FontValue,
   type ColorValue,
+  type LayoutValue,
 } from '../types/theme'
 import { HtmlContent } from './HtmlContent'
 
@@ -149,11 +150,222 @@ interface ResumePreviewProps {
   data: ResumeData
   fontFamily: FontValue
   colorTheme: ColorValue
+  layout: LayoutValue
 }
 
-export function ResumePreview({ data, fontFamily, colorTheme }: ResumePreviewProps) {
-  const { about, summary, experience, education, contact, social } = data.user
+function Header({ about, children }: { about: ResumeData['user']['about']; children?: React.ReactNode }) {
+  if (!about.isShow) return null
+  return (
+    <div className="px-10 pt-8 pb-2">
+      <HtmlContent
+        html={about.name}
+        className="cv-heading text-[28px] font-bold tracking-tight [&>p]:m-0"
+      />
+      <HtmlContent
+        html={about.jobTitle}
+        className="cv-accent text-[16px] mt-0.5 [&>p]:m-0"
+      />
+      {children}
+    </div>
+  )
+}
 
+function Summary({ summary }: { summary: ResumeData['user']['summary'] }) {
+  if (!summary.isShow) return null
+  return (
+    <div className="px-10 pb-3">
+      {summary.hashtags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {summary.hashtags.map((tag) => (
+            <HtmlContent
+              key={tag}
+              html={tag}
+              className="cv-accent cv-accent-bg text-[11px] font-medium px-2 py-0.5 rounded [&>p]:m-0"
+            />
+          ))}
+        </div>
+      )}
+      <HtmlContent
+        html={summary.paragraph}
+        className="resume-content text-[13px] leading-[1.6]"
+      />
+    </div>
+  )
+}
+
+function Divider() {
+  return (
+    <div
+      className="mx-10 mb-4"
+      style={{ borderTop: '1px solid var(--cv-border)' }}
+    />
+  )
+}
+
+function Sidebar({ contact, social, education }: {
+  contact: ResumeData['user']['contact']
+  social: ResumeData['user']['social']
+  education: ResumeData['user']['education']
+}) {
+  return (
+    <>
+      <ContactSection section={contact} />
+      <SocialSection section={social} />
+      <EducationSection section={education} />
+    </>
+  )
+}
+
+function LayoutRightSidebar({ data }: { data: ResumeData }) {
+  const { about, summary, experience, education, contact, social } = data.user
+  return (
+    <>
+      <Header about={about} />
+      <Summary summary={summary} />
+      <Divider />
+      <div className="flex px-10 pb-8 gap-8">
+        <div className="w-[78%]">
+          <ExperienceSection section={experience} />
+        </div>
+        <div
+          className="w-[22%] shrink-0 text-[11px] leading-snug pl-6"
+          style={{ borderLeft: '1px solid var(--cv-border)' }}
+        >
+          <Sidebar contact={contact} social={social} education={education} />
+        </div>
+      </div>
+    </>
+  )
+}
+
+function LayoutLeftSidebar({ data }: { data: ResumeData }) {
+  const { about, summary, experience, education, contact, social } = data.user
+  return (
+    <>
+      <Header about={about} />
+      <Summary summary={summary} />
+      <Divider />
+      <div className="flex px-10 pb-8 gap-8">
+        <div
+          className="w-[22%] shrink-0 text-[11px] leading-snug pr-6"
+          style={{ borderRight: '1px solid var(--cv-border)' }}
+        >
+          <Sidebar contact={contact} social={social} education={education} />
+        </div>
+        <div className="w-[78%]">
+          <ExperienceSection section={experience} />
+        </div>
+      </div>
+    </>
+  )
+}
+
+function InlineContact({ contact, social }: {
+  contact: ResumeData['user']['contact']
+  social: ResumeData['user']['social']
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] cv-muted">
+      {contact.isShow && contact.list
+        .filter((item) => item.isShow)
+        .map((item) => (
+          <HtmlContent
+            key={item.id}
+            html={item.paragraph ?? ''}
+            className="[&>p]:m-0 [&>p]:inline [&>p+p]:before:content-['_·_']"
+          />
+        ))}
+      {social.isShow && social.list
+        .filter((item) => item.isShow)
+        .map((item) => (
+          <a
+            key={item.id}
+            href={safeHref(item.link)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="cv-accent flex items-center gap-1 hover:opacity-70 transition-opacity"
+          >
+            {item.icon === 'linkedin' && <LinkedInIcon />}
+            {item.icon === 'github' && <GitHubIcon />}
+            <HtmlContent html={item.type ?? ''} className="[&>p]:m-0" />
+          </a>
+        ))}
+    </div>
+  )
+}
+
+function InlineEducation({ section }: { section: ResumeData['user']['education'] }) {
+  if (!section.isShow) return null
+  return (
+    <div className="text-[12px]">
+      <SectionTitle>{section.name}</SectionTitle>
+      <div className="flex flex-wrap gap-x-6 gap-y-1">
+        {section.list
+          .filter((item) => item.isShow)
+          .map((item) => (
+            <span key={item.id} className="flex items-baseline gap-1.5">
+              <HtmlContent html={item.title ?? ''} className="cv-heading font-semibold [&>p]:m-0 [&>p]:inline" />
+              <HtmlContent html={item.subtitle ?? ''} className="cv-muted [&>p]:m-0 [&>p]:inline" />
+              <HtmlContent html={item.paragraph ?? ''} className="cv-muted [&>p]:m-0 [&>p]:inline" />
+            </span>
+          ))}
+      </div>
+    </div>
+  )
+}
+
+function LayoutTopHeader({ data }: { data: ResumeData }) {
+  const { about, summary, experience, education, contact, social } = data.user
+  return (
+    <>
+      <Header about={about}>
+        <div className="mt-2">
+          <InlineContact contact={contact} social={social} />
+        </div>
+      </Header>
+      <Summary summary={summary} />
+      <div className="px-10 pb-8">
+        <ExperienceSection section={experience} />
+        <div className="mt-5">
+          <InlineEducation section={education} />
+        </div>
+      </div>
+    </>
+  )
+}
+
+function LayoutSingleColumn({ data }: { data: ResumeData }) {
+  const { about, summary, experience, education, contact, social } = data.user
+  return (
+    <>
+      <Header about={about} />
+      <Summary summary={summary} />
+      <div className="px-10 pb-8">
+        <ExperienceSection section={experience} />
+        <div className="mt-5">
+          <InlineEducation section={education} />
+        </div>
+        <div className="flex gap-8 text-[11px] leading-snug mt-4">
+          <div className="flex-1">
+            <ContactSection section={contact} />
+          </div>
+          <div className="flex-1">
+            <SocialSection section={social} />
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+const LAYOUTS: Record<LayoutValue, React.ComponentType<{ data: ResumeData }>> = {
+  'right-sidebar': LayoutRightSidebar,
+  'left-sidebar': LayoutLeftSidebar,
+  'top-header': LayoutTopHeader,
+  'single-column': LayoutSingleColumn,
+}
+
+export function ResumePreview({ data, fontFamily, colorTheme, layout }: ResumePreviewProps) {
   const font = FONT_OPTIONS.find((f) => f.value === fontFamily) ?? FONT_OPTIONS[0]
   const color = COLOR_THEMES.find((c) => c.value === colorTheme) ?? COLOR_THEMES[0]
 
@@ -168,62 +380,14 @@ export function ResumePreview({ data, fontFamily, colorTheme }: ResumePreviewPro
     color: color.text,
   }
 
+  const LayoutComponent = LAYOUTS[layout]
+
   return (
     <div
       className="resume-page w-full max-w-[210mm] min-h-[297mm] bg-white shadow-lg mx-auto my-4 lg:my-8 print:my-0 print:shadow-none print:w-[210mm]"
       style={cssVars}
     >
-      {about.isShow && (
-        <div className="px-10 pt-8 pb-2">
-          <HtmlContent
-            html={about.name}
-            className="cv-heading text-[28px] font-bold tracking-tight [&>p]:m-0"
-          />
-          <HtmlContent
-            html={about.jobTitle}
-            className="cv-accent text-[16px] mt-0.5 [&>p]:m-0"
-          />
-        </div>
-      )}
-
-      {summary.isShow && (
-        <div className="px-10 pb-3">
-          {summary.hashtags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {summary.hashtags.map((tag) => (
-                <HtmlContent
-                  key={tag}
-                  html={tag}
-                  className="cv-accent cv-accent-bg text-[11px] font-medium px-2 py-0.5 rounded [&>p]:m-0"
-                />
-              ))}
-            </div>
-          )}
-          <HtmlContent
-            html={summary.paragraph}
-            className="resume-content text-[13px] leading-[1.6]"
-          />
-        </div>
-      )}
-
-      <div
-        className="mx-10 mb-4"
-        style={{ borderTop: '1px solid var(--cv-border)' }}
-      />
-
-      <div className="flex px-10 pb-8 gap-8">
-        <div className="w-[78%]">
-          <ExperienceSection section={experience} />
-        </div>
-        <div
-          className="w-[22%] shrink-0 text-[11px] leading-snug pl-6"
-          style={{ borderLeft: '1px solid var(--cv-border)' }}
-        >
-          <ContactSection section={contact} />
-          <SocialSection section={social} />
-          <EducationSection section={education} />
-        </div>
-      </div>
+      <LayoutComponent data={data} />
     </div>
   )
 }

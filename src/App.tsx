@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ResumeData } from './types/resume'
 import type { Suggestion } from './types/analysis'
-import type { FontValue, ColorValue } from './types/theme'
+import type { FontValue, ColorValue, LayoutValue } from './types/theme'
 import { wrapHtml } from './utils/html'
 import { useResume } from './hooks/useResume'
 import { ResumePreview } from './components/ResumePreview'
@@ -52,9 +52,13 @@ function AppContent({ initial }: { initial: ResumeData }) {
   const [colorTheme, setColorTheme] = useState<ColorValue>(
     () => (localStorage.getItem('cv-color') as ColorValue) || 'default',
   )
+  const [layout, setLayout] = useState<LayoutValue>(
+    () => (localStorage.getItem('cv-layout') as LayoutValue) || 'right-sidebar',
+  )
 
   useEffect(() => { localStorage.setItem('cv-font', fontFamily) }, [fontFamily])
   useEffect(() => { localStorage.setItem('cv-color', colorTheme) }, [colorTheme])
+  useEffect(() => { localStorage.setItem('cv-layout', layout) }, [layout])
 
   const {
     data,
@@ -87,15 +91,17 @@ function AppContent({ initial }: { initial: ResumeData }) {
       <Toolbar
         fontFamily={fontFamily}
         colorTheme={colorTheme}
+        layout={layout}
         onFontChange={setFontFamily}
         onColorChange={setColorTheme}
+        onLayoutChange={setLayout}
         onExportCvicream={exportData}
         onImportCvicream={importData}
         onReset={resetToInitial}
       />
       <div className="pt-14 flex flex-col lg:flex-row h-[calc(100vh-3.5rem)]">
         <div className="flex-1 overflow-y-auto bg-gray-100 p-4 lg:p-6">
-          <ResumePreview data={data} fontFamily={fontFamily} colorTheme={colorTheme} />
+          <ResumePreview data={data} fontFamily={fontFamily} colorTheme={colorTheme} layout={layout} />
         </div>
 
         <div className="no-print w-full lg:w-[400px] shrink-0 flex flex-col max-h-[50vh] lg:max-h-none">

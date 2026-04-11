@@ -2,25 +2,64 @@ import { useRef } from 'react'
 import {
   FONT_OPTIONS,
   COLOR_THEMES,
+  LAYOUT_OPTIONS,
   type FontValue,
   type ColorValue,
+  type LayoutValue,
 } from '../types/theme'
 
 interface ToolbarProps {
   fontFamily: FontValue
   colorTheme: ColorValue
+  layout: LayoutValue
   onFontChange: (font: FontValue) => void
   onColorChange: (color: ColorValue) => void
+  onLayoutChange: (layout: LayoutValue) => void
   onExportCvicream: () => string
   onImportCvicream: (json: string) => void
   onReset: () => void
 }
 
+function LayoutIcon({ type, active }: { type: LayoutValue; active: boolean }) {
+  const cls = `w-[18px] h-[22px] rounded-sm border ${active ? 'border-gray-900' : 'border-gray-400'}`
+  const fill = active ? '#111827' : '#9ca3af'
+  const bg = active ? '#e5e7eb' : '#f3f4f6'
+
+  return (
+    <svg viewBox="0 0 18 22" className={cls}>
+      <rect x="0" y="0" width="18" height="5" fill={fill} rx="1" />
+      {type === 'right-sidebar' && (
+        <>
+          <rect x="0" y="6" width="12" height="16" fill={bg} rx="1" />
+          <rect x="13" y="6" width="5" height="16" fill={fill} opacity="0.4" rx="1" />
+        </>
+      )}
+      {type === 'left-sidebar' && (
+        <>
+          <rect x="0" y="6" width="5" height="16" fill={fill} opacity="0.4" rx="1" />
+          <rect x="6" y="6" width="12" height="16" fill={bg} rx="1" />
+        </>
+      )}
+      {type === 'top-header' && (
+        <>
+          <rect x="0" y="6" width="18" height="16" fill={bg} rx="1" />
+          <rect x="10" y="0" width="8" height="5" fill={bg} rx="1" />
+        </>
+      )}
+      {type === 'single-column' && (
+        <rect x="2" y="6" width="14" height="16" fill={bg} rx="1" />
+      )}
+    </svg>
+  )
+}
+
 export function Toolbar({
   fontFamily,
   colorTheme,
+  layout,
   onFontChange,
   onColorChange,
+  onLayoutChange,
   onExportCvicream,
   onImportCvicream,
   onReset,
@@ -67,6 +106,21 @@ export function Toolbar({
       <div className="px-4 lg:px-6 h-14 flex items-center justify-between">
         <h1 className="text-base lg:text-lg font-bold text-gray-900">CV Cream</h1>
         <div className="flex items-center gap-1 lg:gap-3">
+          <div className="flex items-center gap-0.5">
+            {LAYOUT_OPTIONS.map((l) => (
+              <button
+                key={l.value}
+                onClick={() => onLayoutChange(l.value)}
+                title={l.label}
+                className="p-1 cursor-pointer rounded hover:bg-gray-100"
+              >
+                <LayoutIcon type={l.value} active={layout === l.value} />
+              </button>
+            ))}
+          </div>
+
+          <div className="w-px h-6 bg-gray-200 hidden lg:block" />
+
           <select
             value={fontFamily}
             onChange={(e) => onFontChange(e.target.value as FontValue)}
