@@ -1,12 +1,26 @@
 import { useRef } from 'react'
+import {
+  FONT_OPTIONS,
+  COLOR_THEMES,
+  type FontValue,
+  type ColorValue,
+} from '../types/theme'
 
 interface ToolbarProps {
+  fontFamily: FontValue
+  colorTheme: ColorValue
+  onFontChange: (font: FontValue) => void
+  onColorChange: (color: ColorValue) => void
   onExportCvicream: () => string
   onImportCvicream: (json: string) => void
   onReset: () => void
 }
 
 export function Toolbar({
+  fontFamily,
+  colorTheme,
+  onFontChange,
+  onColorChange,
   onExportCvicream,
   onImportCvicream,
   onReset,
@@ -52,10 +66,36 @@ export function Toolbar({
     <div className="no-print fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-50">
       <div className="px-4 lg:px-6 h-14 flex items-center justify-between">
         <h1 className="text-base lg:text-lg font-bold text-gray-900">CV Cream</h1>
-        <div className="flex items-center gap-1 lg:gap-2">
+        <div className="flex items-center gap-1 lg:gap-3">
+          <select
+            value={fontFamily}
+            onChange={(e) => onFontChange(e.target.value as FontValue)}
+            className="px-2 py-1.5 text-xs border border-gray-300 rounded cursor-pointer bg-white"
+          >
+            {FONT_OPTIONS.map((f) => (
+              <option key={f.value} value={f.value}>{f.label}</option>
+            ))}
+          </select>
+
+          <div className="flex items-center gap-1">
+            {COLOR_THEMES.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => onColorChange(t.value)}
+                title={t.label}
+                className={`w-5 h-5 rounded-full border-2 cursor-pointer ${
+                  colorTheme === t.value ? 'border-gray-900 scale-110' : 'border-gray-300'
+                }`}
+                style={{ backgroundColor: t.accent }}
+              />
+            ))}
+          </div>
+
+          <div className="w-px h-6 bg-gray-200 hidden lg:block" />
+
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
+            className="px-2 lg:px-3 py-2 text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
           >
             Import
           </button>
@@ -68,19 +108,19 @@ export function Toolbar({
           />
           <button
             onClick={handleExportFile}
-            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
+            className="px-2 lg:px-3 py-2 text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
           >
             Save
           </button>
           <button
             onClick={onReset}
-            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
+            className="px-2 lg:px-3 py-2 text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
           >
             Reset
           </button>
           <button
             onClick={handleExportPDF}
-            className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
+            className="px-3 lg:px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
           >
             Export PDF
           </button>

@@ -7,24 +7,30 @@
 
 body {
   margin: 0;
-  background: #f5f5f5;
+  background: #f0f0f0;
 }
 
-/* Quill.js content styles for preview */
+/* Theme utility classes */
+.cv-accent { color: var(--cv-accent); }
+.cv-heading { color: var(--cv-heading); }
+.cv-muted { color: var(--cv-muted); }
+.cv-accent-bg { background-color: var(--cv-accent-bg); }
+
+/* Resume content — Quill HTML rendering */
 .resume-content ul {
   list-style-type: disc;
   padding-left: 1.5em;
-  margin: 0.25em 0;
+  margin: 0.2em 0;
 }
 
 .resume-content ol {
   list-style-type: decimal;
   padding-left: 1.5em;
-  margin: 0.25em 0;
+  margin: 0.2em 0;
 }
 
 .resume-content li {
-  margin-bottom: 0.15em;
+  margin-bottom: 0.1em;
 }
 
 .resume-content li.ql-indent-1 {
@@ -36,10 +42,10 @@ body {
 }
 
 .resume-content p {
-  margin-bottom: 0.15em;
+  margin-bottom: 0.1em;
 }
 
-/* Quill editor overrides */
+/* Quill editor indent support */
 .ql-indent-1 {
   padding-left: 1.5em;
 }
@@ -67,21 +73,19 @@ body {
     box-shadow: none !important;
     margin: 0 !important;
     width: 210mm !important;
+    max-width: 210mm !important;
     min-height: auto !important;
     padding-top: 0 !important;
   }
 
-  /* Avoid cutting experience entries */
   .experience-entry {
     break-inside: avoid;
   }
 
-  /* Avoid cutting section headers from content */
   h3 {
     break-after: avoid;
   }
 
-  /* Keep sidebar sections together */
   .sidebar-section {
     break-inside: avoid;
   }
