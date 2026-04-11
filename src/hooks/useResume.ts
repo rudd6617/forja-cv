@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ResumeData, ResumeItem, SectionKey } from '../types/resume'
 import { SECTION_KEYS } from '../types/resume'
 
-const STORAGE_KEY = 'cv-cream-resume'
+const STORAGE_KEY = 'cv-rabbit-resume'
 const SAVE_DEBOUNCE_MS = 500
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -65,13 +65,16 @@ function ensureIds(data: ResumeData): ResumeData {
   return anyChanged ? { ...data, user } : data
 }
 
-export function useResume(initial: ResumeData) {
+export function useResume(initial: ResumeData, onDataChange?: (data: ResumeData) => void) {
   const [data, setData] = useState<ResumeData>(() => {
     return ensureIds(loadFromStorage() ?? initial)
   })
 
   const dataRef = useRef(data)
+  const onDataChangeRef = useRef(onDataChange)
   const isFirstRender = useRef(true)
+
+  useEffect(() => { onDataChangeRef.current = onDataChange }, [onDataChange])
 
   useEffect(() => {
     dataRef.current = data
@@ -80,6 +83,7 @@ export function useResume(initial: ResumeData) {
       return
     }
     debouncedSave(data)
+    onDataChangeRef.current?.(data)
   }, [data])
 
   const updateAbout = useCallback(
@@ -202,6 +206,10 @@ export function useResume(initial: ResumeData) {
     setData(ensureIds(initial))
   }, [initial])
 
+  const loadData = useCallback((resumeData: ResumeData) => {
+    setData(ensureIds(resumeData))
+  }, [])
+
   return {
     data,
     updateAbout,
@@ -213,5 +221,6 @@ export function useResume(initial: ResumeData) {
     exportData,
     importData,
     resetToInitial,
+    loadData,
   }
 }

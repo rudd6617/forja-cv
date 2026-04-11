@@ -7,11 +7,13 @@ import {
   type ColorValue,
   type LayoutValue,
 } from '../types/theme'
+import { useAuth } from '../hooks/useAuth'
 
 interface ToolbarProps {
   fontFamily: FontValue
   colorTheme: ColorValue
   layout: LayoutValue
+  syncStatus: 'idle' | 'saving' | 'saved' | 'error' | null
   onFontChange: (font: FontValue) => void
   onColorChange: (color: ColorValue) => void
   onLayoutChange: (layout: LayoutValue) => void
@@ -60,11 +62,13 @@ export function Toolbar({
   onFontChange,
   onColorChange,
   onLayoutChange,
+  syncStatus,
   onExportCvicream,
   onImportCvicream,
   onReset,
 }: ToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { user, isLoading, signIn, signOut } = useAuth()
 
   const handleExportPDF = () => {
     window.print()
@@ -104,7 +108,18 @@ export function Toolbar({
   return (
     <div className="no-print fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-50">
       <div className="px-4 lg:px-6 h-14 flex items-center justify-between">
-        <h1 className="text-base lg:text-lg font-bold text-gray-900">CV Cream</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-base lg:text-lg font-bold text-gray-900">CV Rabbit</h1>
+          {syncStatus === 'saving' && (
+            <span className="text-xs text-gray-400">Saving...</span>
+          )}
+          {syncStatus === 'saved' && (
+            <span className="text-xs text-green-500">Saved</span>
+          )}
+          {syncStatus === 'error' && (
+            <span className="text-xs text-red-500">Sync error</span>
+          )}
+        </div>
         <div className="flex items-center gap-1 lg:gap-3">
           <div className="flex items-center gap-0.5">
             {LAYOUT_OPTIONS.map((l) => (
@@ -178,6 +193,32 @@ export function Toolbar({
           >
             Export PDF
           </button>
+
+          <div className="w-px h-6 bg-gray-200 hidden lg:block" />
+
+          {isLoading ? null : user ? (
+            <div className="flex items-center gap-2">
+              <img
+                src={user.picture}
+                alt=""
+                className="w-7 h-7 rounded-full"
+                referrerPolicy="no-referrer"
+              />
+              <button
+                onClick={signOut}
+                className="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-900 cursor-pointer"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={signIn}
+              className="px-3 py-1.5 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 cursor-pointer"
+            >
+              Sign in
+            </button>
+          )}
         </div>
       </div>
     </div>

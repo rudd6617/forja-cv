@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ResumeData } from './types/resume'
 import type { Suggestion } from './types/analysis'
 import type { FontValue, ColorValue, LayoutValue } from './types/theme'
 import { wrapHtml } from './utils/html'
 import { useResume } from './hooks/useResume'
+import { useAuth } from './hooks/useAuth'
 import { ResumePreview } from './components/ResumePreview'
 import { EditorPanel } from './components/EditorPanel'
 import { JDPanel } from './components/JDPanel'
+import { ResumeList } from './components/ResumeList'
 import { Toolbar } from './components/Toolbar'
+import * as api from './services/resumeApi'
 
 const EMPTY_RESUME: ResumeData = {
   title: 'New Resume',
@@ -39,13 +42,19 @@ const EMPTY_RESUME: ResumeData = {
 }
 
 export default function App() {
-  return <AppContent initial={EMPTY_RESUME} />
+  return <AppContent />
 }
 
-type Tab = 'edit' | 'jd'
+type Tab = 'edit' | 'jd' | 'resumes'
 
-function AppContent({ initial }: { initial: ResumeData }) {
+const SYNC_DEBOUNCE_MS = 2000
+
+function AppContent() {
+  const { user, idToken } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('edit')
+  const [currentResumeId, setCurrentResumeId] = useState<string | null>(null)
+  const [resumeListKey, setResumeListKey] = useState(0)
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [fontFamily, setFontFamily] = useState<FontValue>(
     () => (localStorage.getItem('cv-font') as FontValue) || 'gill-sans',
   )
@@ -60,6 +69,31 @@ function AppContent({ initial }: { initial: ResumeData }) {
   useEffect(() => { localStorage.setItem('cv-color', colorTheme) }, [colorTheme])
   useEffect(() => { localStorage.setItem('cv-layout', layout) }, [layout])
 
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const syncCounterRef = useRef(0)
+  const idTokenRef = useRef(idToken)
+  const currentResumeIdRef = useRef(currentResumeId)
+
+  useEffect(() => { idTokenRef.current = idToken }, [idToken])
+  useEffect(() => { currentResumeIdRef.current = currentResumeId }, [currentResumeId])
+
+  const handleDataChange = useCallback((resumeData: ResumeData) => {
+    if (!idTokenRef.current || !currentResumeIdRef.current) return
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+    const token = idTokenRef.current
+    const id = currentResumeIdRef.current
+    const requestId = ++syncCounterRef.current
+    syncTimerRef.current = setTimeout(() => {
+      setSyncStatus('saving')
+      api.updateResume(token, id, {
+        title: resumeData.title,
+        data: JSON.stringify(resumeData),
+      })
+        .then(() => { if (syncCounterRef.current === requestId) setSyncStatus('saved') })
+        .catch(() => { if (syncCounterRef.current === requestId) setSyncStatus('error') })
+    }, SYNC_DEBOUNCE_MS)
+  }, [])
+
   const {
     data,
     updateAbout,
@@ -71,7 +105,46 @@ function AppContent({ initial }: { initial: ResumeData }) {
     exportData,
     importData,
     resetToInitial,
-  } = useResume(initial)
+    loadData,
+  } = useResume(EMPTY_RESUME, user ? handleDataChange : undefined)
+
+  const handleSelectResume = useCallback(async (id: string) => {
+    if (!idToken) return
+    try {
+      const record = await api.getResume(idToken, id)
+      const parsed = JSON.parse(record.data) as ResumeData
+      loadData(parsed)
+      setCurrentResumeId(id)
+      setActiveTab('edit')
+    } catch {
+      setSyncStatus('error')
+    }
+  }, [idToken, loadData])
+
+  const handleNewResume = useCallback(async () => {
+    if (!idToken) return
+    try {
+      const { id } = await api.createResume(
+        idToken,
+        'New Resume',
+        JSON.stringify(EMPTY_RESUME),
+      )
+      loadData(EMPTY_RESUME)
+      setCurrentResumeId(id)
+      setResumeListKey((k) => k + 1)
+      setActiveTab('edit')
+    } catch {
+      setSyncStatus('error')
+    }
+  }, [idToken, loadData])
+
+  const handleDeleteResume = useCallback((id: string) => {
+    if (id === currentResumeId) {
+      loadData(EMPTY_RESUME)
+      setCurrentResumeId(null)
+    }
+    setResumeListKey((k) => k + 1)
+  }, [currentResumeId, loadData])
 
   const handleApplySuggestion = useCallback(
     (suggestion: Suggestion) => {
@@ -86,12 +159,15 @@ function AppContent({ initial }: { initial: ResumeData }) {
     [updateSummary, updateSectionItem],
   )
 
+  const showResumesTab = !!user
+
   return (
     <>
       <Toolbar
         fontFamily={fontFamily}
         colorTheme={colorTheme}
         layout={layout}
+        syncStatus={user ? syncStatus : null}
         onFontChange={setFontFamily}
         onColorChange={setColorTheme}
         onLayoutChange={setLayout}
@@ -106,6 +182,18 @@ function AppContent({ initial }: { initial: ResumeData }) {
 
         <div className="no-print w-full lg:w-[400px] shrink-0 flex flex-col max-h-[50vh] lg:max-h-none">
           <div className="flex border-b border-gray-200 shrink-0">
+            {showResumesTab && (
+              <button
+                onClick={() => setActiveTab('resumes')}
+                className={`flex-1 py-3 text-sm font-medium cursor-pointer ${
+                  activeTab === 'resumes'
+                    ? 'text-gray-900 border-b-2 border-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Resumes
+              </button>
+            )}
             <button
               onClick={() => setActiveTab('edit')}
               className={`flex-1 py-3 text-sm font-medium cursor-pointer ${
@@ -129,7 +217,15 @@ function AppContent({ initial }: { initial: ResumeData }) {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {activeTab === 'edit' ? (
+            {activeTab === 'resumes' && showResumesTab ? (
+              <ResumeList
+                key={resumeListKey}
+                currentId={currentResumeId}
+                onSelect={handleSelectResume}
+                onNew={handleNewResume}
+                onDelete={handleDeleteResume}
+              />
+            ) : activeTab === 'edit' ? (
               <EditorPanel
                 data={data}
                 updateAbout={updateAbout}
