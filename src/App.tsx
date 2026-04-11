@@ -13,6 +13,7 @@ import { Toolbar } from './components/Toolbar'
 import * as api from './services/resumeApi'
 
 const EMPTY_RESUME: ResumeData = {
+  version: 1,
   title: 'New Resume',
   user: {
     template: 1,

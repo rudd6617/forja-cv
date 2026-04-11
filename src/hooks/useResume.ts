@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ResumeData, ResumeItem, SectionKey } from '../types/resume'
-import { SECTION_KEYS } from '../types/resume'
+import { SECTION_KEYS, CURRENT_RESUME_VERSION } from '../types/resume'
 
 const STORAGE_KEY = 'cv-rabbit-resume'
 const SAVE_DEBOUNCE_MS = 500
@@ -21,11 +21,24 @@ function isValidResumeData(data: unknown): data is ResumeData {
   return true
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function migrateData(data: any): any {
+  const version = typeof data.version === 'number' ? data.version : 0
+  if (version >= CURRENT_RESUME_VERSION) return data
+
+  const result = { ...data }
+  if (version < 1) {
+    delete result.toolbar
+    result.version = CURRENT_RESUME_VERSION
+  }
+  return result
+}
+
 function loadFromStorage(): ResumeData | null {
   const raw = localStorage.getItem(STORAGE_KEY)
   if (!raw) return null
   try {
-    const parsed = JSON.parse(raw)
+    const parsed = migrateData(JSON.parse(raw))
     return isValidResumeData(parsed) ? parsed : null
   } catch {
     return null
@@ -192,7 +205,7 @@ export function useResume(initial: ResumeData, onDataChange?: (data: ResumeData)
   const importData = useCallback((json: string) => {
     let parsed: unknown
     try {
-      parsed = JSON.parse(json)
+      parsed = migrateData(JSON.parse(json))
     } catch {
       throw new Error('Import failed: Invalid JSON')
     }
@@ -207,7 +220,7 @@ export function useResume(initial: ResumeData, onDataChange?: (data: ResumeData)
   }, [initial])
 
   const loadData = useCallback((resumeData: ResumeData) => {
-    setData(ensureIds(resumeData))
+    setData(ensureIds(migrateData(resumeData)))
   }, [])
 
   return {

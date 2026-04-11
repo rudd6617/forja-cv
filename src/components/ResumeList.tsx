@@ -47,7 +47,18 @@ export function ResumeList({ currentId, onSelect, onNew, onDelete }: ResumeListP
   }
 
   if (loading) {
-    return <div className="p-4 text-sm text-gray-500">Loading...</div>
+    return (
+      <div className="p-4 space-y-2">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center px-3 py-2 rounded border border-gray-100">
+            <div className="space-y-1.5 min-w-0">
+              <div className="h-3.5 w-32 bg-gray-200 rounded animate-pulse" />
+              <div className="h-2.5 w-20 bg-gray-100 rounded animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
   }
 
   return (

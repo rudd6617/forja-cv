@@ -1,6 +1,7 @@
 import type { ResumeData } from '../types/resume'
 import type { AnalysisResult, AnalyzeRequest } from '../types/analysis'
 import { stripHtml } from '../utils/html'
+import { handleResponse } from './resumeApi'
 
 function buildRequest(jd: string, data: ResumeData): AnalyzeRequest {
   return {
@@ -19,7 +20,10 @@ function buildRequest(jd: string, data: ResumeData): AnalyzeRequest {
   }
 }
 
+const ANALYZE_TIMEOUT_MS = 65_000
+
 export async function analyzeJD(
+  idToken: string,
   jd: string,
   data: ResumeData,
 ): Promise<AnalysisResult> {
@@ -27,18 +31,15 @@ export async function analyzeJD(
 
   const res = await fetch('/api/analyze', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
     body: JSON.stringify(request),
+    signal: AbortSignal.timeout(ANALYZE_TIMEOUT_MS),
   })
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(
-      (err as { error?: string }).error ?? `API error: ${res.status}`,
-    )
-  }
-
-  return (await res.json()) as AnalysisResult
+  return handleResponse<AnalysisResult>(res)
 }
 
 export function mockAnalyzeJD(

@@ -7,6 +7,7 @@ const STORAGE_KEY = 'cv-rabbit-resume'
 
 function makeResume(overrides: Partial<ResumeData> = {}): ResumeData {
   return {
+    version: 1,
     title: 'Test Resume',
     user: {
       template: 1,
@@ -62,6 +63,19 @@ describe('useResume', () => {
 
       const { result } = renderHook(() => useResume(makeResume()))
       expect(result.current.data.title).toBe('Test Resume')
+    })
+
+    it('migrates legacy data without version field', () => {
+      const legacy = makeResume({ title: 'Legacy' })
+      const raw = JSON.parse(JSON.stringify(legacy))
+      delete raw.version
+      raw.toolbar = { currentState: {}, noteList: [] }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(raw))
+
+      const { result } = renderHook(() => useResume(makeResume()))
+      expect(result.current.data.title).toBe('Legacy')
+      expect(result.current.data.version).toBe(1)
+      expect(result.current.data.toolbar).toBeUndefined()
     })
   })
 

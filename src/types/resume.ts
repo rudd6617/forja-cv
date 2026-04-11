@@ -41,7 +41,10 @@ export const SECTION_KEYS = [
 
 export type SectionKey = (typeof SECTION_KEYS)[number]
 
+export const CURRENT_RESUME_VERSION = 1
+
 export interface ResumeData {
+  version: number
   title: string
   toolbar?: unknown
   user: {

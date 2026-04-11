@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ResumeData } from '../types/resume'
 import type { AnalysisResult, Suggestion } from '../types/analysis'
 import { analyzeJD, mockAnalyzeJD } from '../services/analyze'
+import { useAuth } from '../hooks/useAuth'
 
 const HISTORY_KEY = 'cv-rabbit-jd-history'
 const MAX_HISTORY = 20
@@ -133,6 +134,7 @@ function SuggestionCard({
 }
 
 export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
+  const { idToken } = useAuth()
   const [jdText, setJdText] = useState('')
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -156,8 +158,9 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
     setAppliedIndices(new Set())
 
     try {
-      const fn = useMock ? mockAnalyzeJD : analyzeJD
-      const res = await fn(jdText, data)
+      const res = useMock
+        ? await mockAnalyzeJD(jdText, data)
+        : await analyzeJD(idToken!, jdText, data)
       setResult(res)
       setHistory((prev) => [
         { jd: jdText.trim(), result: res, date: new Date().toISOString() },

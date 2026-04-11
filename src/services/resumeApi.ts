@@ -24,7 +24,7 @@ export function setOnUnauthorized(cb: (() => void) | null) {
   onUnauthorized = cb
 }
 
-async function handleResponse<T>(res: Response): Promise<T> {
+export async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     if (res.status === 401 && onUnauthorized) onUnauthorized()
     const err = await res.json().catch(() => ({}))
