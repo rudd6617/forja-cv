@@ -44,14 +44,12 @@ export interface ToolbarState {
   rightPanelWidth: [number, number]
 }
 
-export type SectionKey =
-  | 'experience'
-  | 'education'
-  | 'contact'
-  | 'social'
-  | 'project'
-  | 'skill'
-  | 'certificate'
+export const SECTION_KEYS = [
+  'experience', 'education', 'contact', 'social',
+  'project', 'skill', 'certificate',
+] as const
+
+export type SectionKey = (typeof SECTION_KEYS)[number]
 
 export interface ResumeData {
   title: string

@@ -15,11 +15,10 @@
 | 用途 | 指令 |
 |------|------|
 | 開發 | `npm run dev` |
-| 開發（含 Pages Functions） | `npm run dev:full` |
 | 型別檢查 | `tsc --noEmit` |
 | 建置 | `npm run build` (tsc + vite build) |
 | 預覽 | `npm run preview` |
-| 部署 | `npm run deploy` (build + wrangler pages deploy) |
+| 部署 | push to main → Cloudflare Pages CI/CD |
 
 # Architecture
 

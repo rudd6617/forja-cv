@@ -3,6 +3,14 @@ export function stripHtml(html: string): string {
   return doc.body.textContent ?? ''
 }
 
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 export function wrapHtml(text: string): string {
-  return `<p>${text}</p>`
+  return `<p>${escapeHtml(text)}</p>`
 }

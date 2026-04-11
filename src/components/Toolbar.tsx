@@ -31,9 +31,18 @@ export function Toolbar({
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 1_000_000) {
+      alert('File too large (max 1 MB)')
+      e.target.value = ''
+      return
+    }
     const reader = new FileReader()
     reader.onload = () => {
-      onImportCvicream(reader.result as string)
+      try {
+        onImportCvicream(reader.result as string)
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Import failed')
+      }
     }
     reader.readAsText(file)
     e.target.value = ''

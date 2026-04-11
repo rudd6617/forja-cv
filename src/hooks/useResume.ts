@@ -1,16 +1,32 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ResumeData, ResumeItem, SectionKey } from '../types/resume'
+import { SECTION_KEYS } from '../types/resume'
 
 const STORAGE_KEY = 'cv-cream-resume'
 const SAVE_DEBOUNCE_MS = 500
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
+function isValidResumeData(data: unknown): data is ResumeData {
+  if (!data || typeof data !== 'object') return false
+  const d = data as Record<string, unknown>
+  if (typeof d.title !== 'string') return false
+  if (!d.user || typeof d.user !== 'object') return false
+  const user = d.user as Record<string, unknown>
+  if (!user.about || !user.summary) return false
+  for (const key of SECTION_KEYS) {
+    const section = user[key] as Record<string, unknown> | undefined
+    if (!section || !Array.isArray(section.list)) return false
+  }
+  return true
+}
+
 function loadFromStorage(): ResumeData | null {
   const raw = localStorage.getItem(STORAGE_KEY)
   if (!raw) return null
   try {
-    return JSON.parse(raw) as ResumeData
+    const parsed = JSON.parse(raw)
+    return isValidResumeData(parsed) ? parsed : null
   } catch {
     return null
   }
@@ -29,26 +45,24 @@ function generateId(): string {
 }
 
 function ensureIds(data: ResumeData): ResumeData {
-  const sections: SectionKey[] = [
-    'experience', 'education', 'contact', 'social',
-    'project', 'skill', 'certificate',
-  ]
-  let changed = false
+  let anyChanged = false
   const user = { ...data.user }
 
-  for (const key of sections) {
+  for (const key of SECTION_KEYS) {
     const section = user[key]
+    let sectionChanged = false
     const list = section.list.map((item) => {
       if (item.id) return item
-      changed = true
+      sectionChanged = true
       return { ...item, id: generateId() }
     })
-    if (changed) {
+    if (sectionChanged) {
+      anyChanged = true
       user[key] = { ...section, list }
     }
   }
 
-  return changed ? { ...data, user } : data
+  return anyChanged ? { ...data, user } : data
 }
 
 export function useResume(initial: ResumeData) {
@@ -57,10 +71,10 @@ export function useResume(initial: ResumeData) {
   })
 
   const dataRef = useRef(data)
-  dataRef.current = data
   const isFirstRender = useRef(true)
 
   useEffect(() => {
+    dataRef.current = data
     if (isFirstRender.current) {
       isFirstRender.current = false
       return
@@ -172,17 +186,16 @@ export function useResume(initial: ResumeData) {
   }, [])
 
   const importData = useCallback((json: string) => {
+    let parsed: unknown
     try {
-      const parsed = JSON.parse(json) as ResumeData
-      if (!parsed.user || !parsed.title) {
-        throw new Error('Invalid resume format')
-      }
-      setData(ensureIds(parsed))
-    } catch (e) {
-      throw new Error(
-        `Import failed: ${e instanceof Error ? e.message : 'Invalid JSON'}`,
-      )
+      parsed = JSON.parse(json)
+    } catch {
+      throw new Error('Import failed: Invalid JSON')
     }
+    if (!isValidResumeData(parsed)) {
+      throw new Error('Import failed: Invalid resume format')
+    }
+    setData(ensureIds(parsed))
   }, [])
 
   const resetToInitial = useCallback(() => {

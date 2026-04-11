@@ -1,6 +1,15 @@
 import type { ResumeData, ResumeItem } from '../types/resume'
 import { HtmlContent } from './HtmlContent'
 
+function safeHref(url: string | undefined): string {
+  if (!url) return '#'
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return url
+  } catch { /* ignore */ }
+  return '#'
+}
+
 function SectionTitle({ children }: { children: string }) {
   return (
     <h3 className="text-xs font-bold tracking-widest text-gray-500 uppercase border-b border-gray-300 pb-1 mb-3">
@@ -37,7 +46,7 @@ function SocialSection({ section }: { section: ResumeData['user']['social'] }) {
         .map((item) => (
           <a
             key={item.id}
-            href={item.link}
+            href={safeHref(item.link)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-gray-700 hover:text-blue-600 mb-1.5"

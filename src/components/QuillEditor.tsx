@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import Quill from 'quill'
+import DOMPurify from 'dompurify'
 import 'quill/dist/quill.snow.css'
 
 interface QuillEditorProps {
@@ -47,7 +48,7 @@ export function QuillEditor({
       },
     })
 
-    const delta = quill.clipboard.convert({ html: value })
+    const delta = quill.clipboard.convert({ html: DOMPurify.sanitize(value) })
     quill.setContents(delta, 'silent')
 
     quill.on('text-change', () => {
@@ -73,7 +74,7 @@ export function QuillEditor({
     const quill = quillRef.current
     if (!quill) return
     lastValueRef.current = value
-    const delta = quill.clipboard.convert({ html: value })
+    const delta = quill.clipboard.convert({ html: DOMPurify.sanitize(value) })
     quill.setContents(delta, 'silent')
   }, [value])
 

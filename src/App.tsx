@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { ResumeData } from './types/resume'
 import type { Suggestion } from './types/analysis'
 import { wrapHtml } from './utils/html'
@@ -8,37 +8,37 @@ import { EditorPanel } from './components/EditorPanel'
 import { JDPanel } from './components/JDPanel'
 import { Toolbar } from './components/Toolbar'
 
+const EMPTY_RESUME: ResumeData = {
+  title: 'New Resume',
+  toolbar: {
+    currentState: {
+      fontFamily: 'font-gill-sans',
+      layout: 'layout-right',
+      color: 'default',
+      fontSize: 'default',
+      topPanelWidth: [75, 25],
+      leftPanelWidth: [25, 75],
+      rightPanelWidth: [75, 25],
+    },
+    noteList: [],
+  },
+  user: {
+    template: 1,
+    splitIndex: 2,
+    about: { isShow: true, isEditing: false, name: '<p>Your Name</p>', jobTitle: '<p>Job Title</p>' },
+    summary: { isShow: true, isEditing: false, hashtags: [], paragraph: '' },
+    experience: { isShow: true, name: 'EXPERIENCE', list: [], isEditing: false },
+    project: { isShow: false, name: 'PROJECT', list: [], isEditing: false },
+    skill: { isShow: false, name: 'SKILL', list: [], isEditing: false },
+    education: { isShow: true, name: 'EDUCATION', list: [], isEditing: false },
+    certificate: { isShow: false, name: 'CERTIFICATE', list: [], isEditing: false },
+    contact: { isShow: true, name: 'CONTACT', list: [], isEditing: false },
+    social: { isShow: true, name: 'SOCIAL MEDIA', list: [], isEditing: false },
+  },
+}
+
 export default function App() {
-  const [initial, setInitial] = useState<ResumeData | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('/Rudolf.json')
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to load resume: ${res.status}`)
-        return res.json()
-      })
-      .then(setInitial)
-      .catch((err) => setError(err.message))
-  }, [])
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-red-600">
-        {error}
-      </div>
-    )
-  }
-
-  if (!initial) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">
-        Loading...
-      </div>
-    )
-  }
-
-  return <AppContent initial={initial} />
+  return <AppContent initial={EMPTY_RESUME} />
 }
 
 type Tab = 'edit' | 'jd'

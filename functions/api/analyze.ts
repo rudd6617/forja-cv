@@ -3,6 +3,9 @@ interface Env {
   VLLM_MODEL: string
 }
 
+const MAX_JD_LENGTH = 10_000
+const MAX_RESUME_LENGTH = 20_000
+
 const SYSTEM_PROMPT = `You are an ATS (Applicant Tracking System) resume optimization expert.
 You will receive a job description (JD) and a candidate's resume.
 
@@ -26,21 +29,87 @@ Rules:
 - Focus on measurable impact and action verbs.
 - Return ONLY valid JSON, no markdown fences, no extra text.`
 
+function validateUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+  } catch {
+    return false
+  }
+}
+
+interface ExperienceEntry {
+  title: string
+  company: string
+  period: string
+  description: string
+}
+
+interface RequestBody {
+  jd: string
+  resume: {
+    summary: string
+    experience: ExperienceEntry[]
+  }
+}
+
+function validateBody(body: unknown): body is RequestBody {
+  if (!body || typeof body !== 'object') return false
+  const b = body as Record<string, unknown>
+  if (typeof b.jd !== 'string') return false
+  if (!b.resume || typeof b.resume !== 'object') return false
+  const resume = b.resume as Record<string, unknown>
+  if (typeof resume.summary !== 'string') return false
+  if (!Array.isArray(resume.experience)) return false
+  return true
+}
+
+function stripHtmlTags(text: string): string {
+  return text.replace(/<[^>]*>?/g, '')
+}
+
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { VLLM_API_URL, VLLM_MODEL } = context.env
 
-  if (!VLLM_API_URL) {
+  if (!VLLM_API_URL || !validateUrl(VLLM_API_URL)) {
     return Response.json(
-      { error: 'VLLM_API_URL not configured' },
+      { error: 'VLLM_API_URL not configured or invalid' },
       { status: 500 },
     )
   }
 
-  const body = await context.request.json()
+  let body: unknown
+  try {
+    body = await context.request.json()
+  } catch {
+    return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  if (!validateBody(body)) {
+    return Response.json(
+      { error: 'Invalid request: requires jd (string), resume.summary (string), resume.experience (array)' },
+      { status: 400 },
+    )
+  }
+
+  if (body.jd.length > MAX_JD_LENGTH) {
+    return Response.json(
+      { error: `JD exceeds maximum length of ${MAX_JD_LENGTH} characters` },
+      { status: 400 },
+    )
+  }
+
+  const resumeJson = JSON.stringify(body.resume)
+  if (resumeJson.length > MAX_RESUME_LENGTH) {
+    return Response.json(
+      { error: `Resume exceeds maximum length of ${MAX_RESUME_LENGTH} characters` },
+      { status: 400 },
+    )
+  }
 
   const userMessage = `## Job Description\n${body.jd}\n\n## Resume\n### Summary\n${body.resume.summary}\n\n### Experience\n${body.resume.experience
     .map(
-      (e: { title: string; company: string; period: string; description: string }, i: number) =>
+      (e, i) =>
         `#### [${i}] ${e.title} @ ${e.company} (${e.period})\n${e.description}`,
     )
     .join('\n\n')}`
@@ -60,9 +129,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   })
 
   if (!response.ok) {
-    const text = await response.text()
     return Response.json(
-      { error: `vLLM error: ${response.status}`, detail: text },
+      { error: `Upstream service error (${response.status})` },
       { status: 502 },
     )
   }
@@ -74,10 +142,23 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   try {
     const parsed = JSON.parse(content)
+
+    // Sanitize LLM output — strip any HTML from suggestion text
+    if (Array.isArray(parsed.suggestions)) {
+      parsed.suggestions = parsed.suggestions.map(
+        (s: Record<string, unknown>) => ({
+          ...s,
+          original: typeof s.original === 'string' ? stripHtmlTags(s.original) : '',
+          suggested: typeof s.suggested === 'string' ? stripHtmlTags(s.suggested) : '',
+          reason: typeof s.reason === 'string' ? stripHtmlTags(s.reason) : '',
+        }),
+      )
+    }
+
     return Response.json(parsed)
   } catch {
     return Response.json(
-      { error: 'Failed to parse LLM response', raw: content },
+      { error: 'Failed to parse analysis response' },
       { status: 502 },
     )
   }
