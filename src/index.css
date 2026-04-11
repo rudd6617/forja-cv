@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+}
+
+body {
+  margin: 0;
+  background: #f5f5f5;
+}
+
+/* Quill.js content styles for preview */
+.resume-content ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin: 0.25em 0;
+}
+
+.resume-content ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin: 0.25em 0;
+}
+
+.resume-content li {
+  margin-bottom: 0.15em;
+}
+
+.resume-content li.ql-indent-1 {
+  padding-left: 1.5em;
+}
+
+.resume-content li.ql-indent-2 {
+  padding-left: 3em;
+}
+
+.resume-content p {
+  margin-bottom: 0.15em;
+}
+
+/* Quill editor overrides */
+.ql-indent-1 {
+  padding-left: 1.5em;
+}
+.ql-indent-2 {
+  padding-left: 3em;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  body {
+    background: white;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .resume-page {
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: 210mm !important;
+    min-height: auto !important;
+    padding-top: 0 !important;
+  }
+
+  /* Avoid cutting experience entries */
+  .experience-entry {
+    break-inside: avoid;
+  }
+
+  /* Avoid cutting section headers from content */
+  h3 {
+    break-after: avoid;
+  }
+
+  /* Keep sidebar sections together */
+  .sidebar-section {
+    break-inside: avoid;
+  }
+}
