@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, createElement } from 'react'
 import type { ResumeData } from './types/resume'
+import { downloadBlob } from './utils/download'
 import type { Suggestion } from './types/analysis'
 import type { FontValue, ColorValue, LayoutValue } from './types/theme'
 import { wrapHtml } from './utils/html'
@@ -148,6 +149,17 @@ function AppContent() {
     [updateSummary, updateSectionItem],
   )
 
+  const handleExportPDF = useCallback(async () => {
+    const [{ pdf }, { PdfDocument }] = await Promise.all([
+      import('@react-pdf/renderer'),
+      import('./components/pdf/PdfDocument'),
+    ])
+    const blob = await pdf(
+      createElement(PdfDocument, { data, fontFamily, colorTheme, layout }),
+    ).toBlob()
+    downloadBlob(blob, `${data.title || 'resume'}.pdf`)
+  }, [data, fontFamily, colorTheme, layout])
+
   const showResumesTab = !!user
 
   return (
@@ -160,6 +172,7 @@ function AppContent() {
         onFontChange={setFontFamily}
         onColorChange={setColorTheme}
         onLayoutChange={setLayout}
+        onExportPDF={handleExportPDF}
         onExportCvicream={exportData}
         onImportCvicream={importData}
         onReset={resetToInitial}
@@ -169,7 +182,7 @@ function AppContent() {
           <ResumePreview data={data} fontFamily={fontFamily} colorTheme={colorTheme} layout={layout} />
         </div>
 
-        <div className="no-print w-full lg:w-[400px] shrink-0 flex flex-col max-h-[50vh] lg:max-h-none">
+        <div className="w-full lg:w-[400px] shrink-0 flex flex-col max-h-[50vh] lg:max-h-none">
           <div className="flex border-b border-gray-200 shrink-0">
             {showResumesTab && (
               <button

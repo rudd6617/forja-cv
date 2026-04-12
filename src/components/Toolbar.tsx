@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { downloadBlob } from '../utils/download'
 import {
   FONT_OPTIONS,
   COLOR_THEMES,
@@ -17,6 +18,7 @@ interface ToolbarProps {
   onFontChange: (font: FontValue) => void
   onColorChange: (color: ColorValue) => void
   onLayoutChange: (layout: LayoutValue) => void
+  onExportPDF: () => void
   onExportCvicream: () => string
   onImportCvicream: (json: string) => void
   onReset: () => void
@@ -63,6 +65,7 @@ export function Toolbar({
   onColorChange,
   onLayoutChange,
   syncStatus,
+  onExportPDF,
   onExportCvicream,
   onImportCvicream,
   onReset,
@@ -71,19 +74,10 @@ export function Toolbar({
   const { user, isLoading, signIn, signOut } = useAuth()
   const [importError, setImportError] = useState<string | null>(null)
 
-  const handleExportPDF = () => {
-    window.print()
-  }
-
   const handleExportFile = () => {
     const json = onExportCvicream()
     const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'resume.json'
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadBlob(blob, 'resume.json')
   }
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,7 +102,7 @@ export function Toolbar({
   }
 
   return (
-    <div className="no-print fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-50">
+    <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-50">
       {importError && (
         <div className="px-4 py-2 bg-red-50 border-b border-red-200 text-xs text-red-700 flex items-center justify-between">
           <span>{importError}</span>
@@ -198,7 +192,7 @@ export function Toolbar({
             Reset
           </button>
           <button
-            onClick={handleExportPDF}
+            onClick={onExportPDF}
             className="px-3 lg:px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
           >
             Export PDF

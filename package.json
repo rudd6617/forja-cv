@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.4.1",
     "@tailwindcss/vite": "^4.2.2",
     "dompurify": "^3.3.3",
     "quill": "^2.0.3",
