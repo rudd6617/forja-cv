@@ -154,8 +154,9 @@ function AppContent() {
       import('@react-pdf/renderer'),
       import('./components/pdf/PdfDocument'),
     ])
+    // pdf() expects ReactElement<DocumentProps>, but DocumentProps is not exported from @react-pdf/renderer
     const blob = await pdf(
-      createElement(PdfDocument, { data, fontFamily, colorTheme, layout }),
+      createElement(PdfDocument, { data, fontFamily, colorTheme, layout }) as React.ReactElement<any>,
     ).toBlob()
     downloadBlob(blob, `${data.title || 'resume'}.pdf`)
   }, [data, fontFamily, colorTheme, layout])
