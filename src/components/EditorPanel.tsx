@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import type { ResumeData, ResumeItem, SectionKey } from '../types/resume'
 import { stripHtml, wrapHtml } from '../utils/html'
 import { QuillEditor } from './QuillEditor'
@@ -24,25 +24,65 @@ interface EditorPanelProps {
   addSectionItem: (section: SectionKey) => void
   removeSectionItem: (section: SectionKey, index: number) => void
   moveSectionItem: (section: SectionKey, from: number, to: number) => void
+  toggleSectionVisibility: (section: 'about' | 'summary' | SectionKey) => void
+}
+
+function EyeIcon({ visible }: { visible: boolean }) {
+  if (visible) {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    )
+  }
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  )
 }
 
 function SectionHeader({
   title,
   isOpen,
   onToggle,
+  isVisible,
+  onToggleVisibility,
 }: {
   title: string
   isOpen: boolean
   onToggle: () => void
+  isVisible: boolean
+  onToggleVisibility: () => void
 }) {
+  const handleVisibilityClick = (e: MouseEvent) => {
+    e.stopPropagation()
+    onToggleVisibility()
+  }
+
   return (
     <button
       onClick={onToggle}
       aria-expanded={isOpen}
       className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 border-b border-gray-200 text-sm font-semibold text-gray-700 cursor-pointer"
     >
-      {title}
-      <span className="text-xs">{isOpen ? '▼' : '▶'}</span>
+      <span className={isVisible ? '' : 'opacity-40'}>{title}</span>
+      <span className="flex items-center gap-2">
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={handleVisibilityClick}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); onToggleVisibility() } }}
+          aria-label={isVisible ? `Hide ${title} in preview` : `Show ${title} in preview`}
+          className={`p-1 rounded hover:bg-gray-200 ${isVisible ? 'text-gray-500' : 'text-gray-300'}`}
+        >
+          <EyeIcon visible={isVisible} />
+        </span>
+        <span className="text-xs">{isOpen ? '▼' : '▶'}</span>
+      </span>
     </button>
   )
 }
@@ -265,24 +305,6 @@ const CONTACT_FIELDS: FieldDef[] = [
   { key: 'paragraph', label: 'Contact Info', rich: true },
 ]
 
-const PROJECT_FIELDS: FieldDef[] = [
-  { key: 'title', label: 'Project Name' },
-  { key: 'subtitle1', label: 'Role / Tech' },
-  { key: 'subtitle2', label: 'Period' },
-  { key: 'paragraph', label: 'Description', rich: true },
-]
-
-const SKILL_FIELDS: FieldDef[] = [
-  { key: 'title', label: 'Skill' },
-  { key: 'paragraph', label: 'Details', rich: true },
-]
-
-const CERTIFICATE_FIELDS: FieldDef[] = [
-  { key: 'title', label: 'Certificate Name' },
-  { key: 'subtitle', label: 'Issuer' },
-  { key: 'subtitle2', label: 'Date' },
-]
-
 const SOCIAL_FIELDS: FieldDef[] = [
   { key: 'type', label: 'Platform' },
   { key: 'link', label: 'URL' },
@@ -295,10 +317,7 @@ const LIST_SECTIONS: {
   fields: FieldDef[]
 }[] = [
   { key: 'experience', title: 'Experience', fields: EXPERIENCE_FIELDS },
-  { key: 'project', title: 'Projects', fields: PROJECT_FIELDS },
   { key: 'education', title: 'Education', fields: EDUCATION_FIELDS },
-  { key: 'skill', title: 'Skills', fields: SKILL_FIELDS },
-  { key: 'certificate', title: 'Certificates', fields: CERTIFICATE_FIELDS },
   { key: 'contact', title: 'Contact', fields: CONTACT_FIELDS },
   { key: 'social', title: 'Social Media', fields: SOCIAL_FIELDS },
 ]
@@ -311,6 +330,7 @@ export function EditorPanel({
   addSectionItem,
   removeSectionItem,
   moveSectionItem,
+  toggleSectionVisibility,
 }: EditorPanelProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     about: true,
@@ -325,6 +345,8 @@ export function EditorPanel({
         title="About"
         isOpen={!!openSections.about}
         onToggle={() => toggle('about')}
+        isVisible={data.user.about.isShow}
+        onToggleVisibility={() => toggleSectionVisibility('about')}
       />
       {openSections.about && (
         <AboutEditor about={data.user.about} updateAbout={updateAbout} />
@@ -334,6 +356,8 @@ export function EditorPanel({
         title="Summary"
         isOpen={!!openSections.summary}
         onToggle={() => toggle('summary')}
+        isVisible={data.user.summary.isShow}
+        onToggleVisibility={() => toggleSectionVisibility('summary')}
       />
       {openSections.summary && (
         <SummaryEditor
@@ -348,6 +372,8 @@ export function EditorPanel({
             title={s.title}
             isOpen={!!openSections[s.key]}
             onToggle={() => toggle(s.key)}
+            isVisible={data.user[s.key].isShow}
+            onToggleVisibility={() => toggleSectionVisibility(s.key)}
           />
           {openSections[s.key] && (
             <ListSectionEditor

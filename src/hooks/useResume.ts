@@ -4,6 +4,8 @@ import { SECTION_KEYS, CURRENT_RESUME_VERSION } from '../types/resume'
 
 const STORAGE_KEY = 'cv-rabbit-resume'
 const SAVE_DEBOUNCE_MS = 500
+const HISTORY_MAX = 50
+const HISTORY_DEBOUNCE_MS = 500
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -79,13 +81,92 @@ function ensureIds(data: ResumeData): ResumeData {
 }
 
 export function useResume(initial: ResumeData, onDataChange?: (data: ResumeData) => void) {
-  const [data, setData] = useState<ResumeData>(() => {
+  const [data, setDataRaw] = useState<ResumeData>(() => {
     return ensureIds(loadFromStorage() ?? initial)
   })
 
   const dataRef = useRef(data)
   const onDataChangeRef = useRef(onDataChange)
   const isFirstRender = useRef(true)
+
+  // History state
+  const historyRef = useRef<ResumeData[]>([])
+  const historyIndexRef = useRef(-1)
+  const isUndoRedoRef = useRef(false)
+  const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+
+  const updateCanUndoRedo = useCallback(() => {
+    setCanUndo(historyIndexRef.current > 0)
+    setCanRedo(historyIndexRef.current < historyRef.current.length - 1)
+  }, [])
+
+  const pushHistory = useCallback((snapshot: ResumeData) => {
+    const history = historyRef.current
+    const index = historyIndexRef.current
+
+    // Truncate any redo entries
+    historyRef.current = history.slice(0, index + 1)
+    historyRef.current.push(snapshot)
+
+    // Enforce max size
+    if (historyRef.current.length > HISTORY_MAX) {
+      historyRef.current = historyRef.current.slice(historyRef.current.length - HISTORY_MAX)
+    }
+
+    historyIndexRef.current = historyRef.current.length - 1
+    updateCanUndoRedo()
+  }, [updateCanUndoRedo])
+
+  const setData = useCallback((updater: ResumeData | ((prev: ResumeData) => ResumeData)) => {
+    setDataRaw((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      if (!isUndoRedoRef.current) {
+        if (historyTimerRef.current) clearTimeout(historyTimerRef.current)
+        historyTimerRef.current = setTimeout(() => {
+          pushHistory(next)
+        }, HISTORY_DEBOUNCE_MS)
+      }
+      return next
+    })
+  }, [pushHistory])
+
+  const undo = useCallback(() => {
+    if (historyIndexRef.current <= 0) return
+    // Flush any pending history push so current state is saved
+    if (historyTimerRef.current) {
+      clearTimeout(historyTimerRef.current)
+      historyTimerRef.current = null
+      pushHistory(dataRef.current)
+    }
+    if (historyIndexRef.current <= 0) return
+    isUndoRedoRef.current = true
+    historyIndexRef.current -= 1
+    const snapshot = historyRef.current[historyIndexRef.current]
+    setDataRaw(snapshot)
+    updateCanUndoRedo()
+    isUndoRedoRef.current = false
+  }, [pushHistory, updateCanUndoRedo])
+
+  const redo = useCallback(() => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return
+    isUndoRedoRef.current = true
+    historyIndexRef.current += 1
+    const snapshot = historyRef.current[historyIndexRef.current]
+    setDataRaw(snapshot)
+    updateCanUndoRedo()
+    isUndoRedoRef.current = false
+  }, [updateCanUndoRedo])
+
+  // Initialize history with the initial state
+  useEffect(() => {
+    if (historyRef.current.length === 0) {
+      historyRef.current = [dataRef.current]
+      historyIndexRef.current = 0
+      updateCanUndoRedo()
+    }
+  }, [updateCanUndoRedo])
 
   useEffect(() => { onDataChangeRef.current = onDataChange }, [onDataChange])
 
@@ -109,7 +190,7 @@ export function useResume(initial: ResumeData, onDataChange?: (data: ResumeData)
         },
       }))
     },
-    [],
+    [setData],
   )
 
   const updateSummary = useCallback(
@@ -122,7 +203,7 @@ export function useResume(initial: ResumeData, onDataChange?: (data: ResumeData)
         },
       }))
     },
-    [],
+    [setData],
   )
 
   const updateSectionItem = useCallback(
@@ -140,7 +221,7 @@ export function useResume(initial: ResumeData, onDataChange?: (data: ResumeData)
         },
       }))
     },
-    [],
+    [setData],
   )
 
   const addSectionItem = useCallback((section: SectionKey) => {
@@ -165,7 +246,7 @@ export function useResume(initial: ResumeData, onDataChange?: (data: ResumeData)
         },
       },
     }))
-  }, [])
+  }, [setData])
 
   const removeSectionItem = useCallback(
     (section: SectionKey, index: number) => {
@@ -180,7 +261,7 @@ export function useResume(initial: ResumeData, onDataChange?: (data: ResumeData)
         },
       }))
     },
-    [],
+    [setData],
   )
 
   const moveSectionItem = useCallback(
@@ -195,7 +276,23 @@ export function useResume(initial: ResumeData, onDataChange?: (data: ResumeData)
         }
       })
     },
-    [],
+    [setData],
+  )
+
+  const toggleSectionVisibility = useCallback(
+    (section: 'about' | 'summary' | SectionKey) => {
+      setData((prev) => ({
+        ...prev,
+        user: {
+          ...prev.user,
+          [section]: {
+            ...prev.user[section],
+            isShow: !prev.user[section].isShow,
+          },
+        },
+      }))
+    },
+    [setData],
   )
 
   const exportData = useCallback((): string => {
@@ -213,15 +310,15 @@ export function useResume(initial: ResumeData, onDataChange?: (data: ResumeData)
       throw new Error('Import failed: Invalid resume format')
     }
     setData(ensureIds(parsed))
-  }, [])
+  }, [setData])
 
   const resetToInitial = useCallback(() => {
     setData(ensureIds(initial))
-  }, [initial])
+  }, [initial, setData])
 
   const loadData = useCallback((resumeData: ResumeData) => {
     setData(ensureIds(migrateData(resumeData)))
-  }, [])
+  }, [setData])
 
   return {
     data,
@@ -231,9 +328,14 @@ export function useResume(initial: ResumeData, onDataChange?: (data: ResumeData)
     addSectionItem,
     removeSectionItem,
     moveSectionItem,
+    toggleSectionVisibility,
     exportData,
     importData,
     resetToInitial,
     loadData,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   }
 }
