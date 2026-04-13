@@ -109,11 +109,35 @@ function AppContent() {
     addSectionItem,
     removeSectionItem,
     moveSectionItem,
+    toggleSectionVisibility,
     exportData,
     importData,
     resetToInitial,
     loadData,
+    undo,
+    redo,
   } = useResume(EMPTY_RESUME, user ? handleDataChange : undefined)
+
+  // Undo/redo keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y)
+  // Skip when focus is inside a Quill editor (it handles its own undo)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target?.closest('.ql-editor')) return
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+      } else if (
+        (e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))
+      ) {
+        e.preventDefault()
+        redo()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [undo, redo])
 
   const handleSelectResume = useCallback(async (id: string) => {
     if (!idToken) return
@@ -256,6 +280,7 @@ function AppContent() {
                 addSectionItem={addSectionItem}
                 removeSectionItem={removeSectionItem}
                 moveSectionItem={moveSectionItem}
+                toggleSectionVisibility={toggleSectionVisibility}
               />
             ) : (
               <JDPanel data={data} onApplySuggestion={handleApplySuggestion} />
