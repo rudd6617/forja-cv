@@ -40,31 +40,11 @@ Font.register({
   ],
 })
 
-Font.register({
-  family: 'Inter',
-  fonts: [
-    { src: '/fonts/Inter-Regular.otf' },
-    { src: '/fonts/Inter-Bold.otf', fontWeight: 'bold' },
-    { src: '/fonts/Inter-Italic.otf', fontStyle: 'italic' },
-    { src: '/fonts/Inter-BoldItalic.otf', fontWeight: 'bold', fontStyle: 'italic' },
-  ],
-})
-
-Font.register({
-  family: 'Lato',
-  fonts: [
-    { src: '/fonts/Lato-Regular.ttf' },
-    { src: '/fonts/Lato-Bold.ttf', fontWeight: 'bold' },
-    { src: '/fonts/Lato-Italic.ttf', fontStyle: 'italic' },
-    { src: '/fonts/Lato-BoldItalic.ttf', fontWeight: 'bold', fontStyle: 'italic' },
-  ],
-})
-
 Font.registerHyphenationCallback((word) => [word])
 
 const FONT_MAP: Record<FontValue, string> = {
-  'gill-sans': 'Lato',
-  'inter': 'Inter',
+  'gill-sans': 'Noto Sans TC',
+  'inter': 'Noto Sans TC',
   'noto-sans-tc': 'Noto Sans TC',
   'georgia': 'Noto Serif TC',
 }
@@ -80,7 +60,7 @@ interface PdfCtx {
 
 function SectionTitle({ children, ctx }: { children: string; ctx: PdfCtx }) {
   return (
-    <View style={{ borderBottomWidth: 2, borderBottomColor: ctx.colors.accent, paddingBottom: 4, marginBottom: 8 }}>
+    <View style={{ borderBottomWidth: 2, borderBottomColor: ctx.colors.accent, paddingBottom: 4, marginBottom: 8 }} minPresenceAhead={40}>
       <Text style={{
         fontFamily: ctx.font,
         color: ctx.colors.accent,
@@ -106,7 +86,7 @@ function ContactSection({ section, ctx }: { section: ResumeData['user']['contact
     <View style={{ marginBottom: 14 }}>
       <SectionTitle ctx={ctx}>{section.name}</SectionTitle>
       {section.list.filter(item => item.isShow).map(item => (
-        <View key={item.id} style={{ marginBottom: 2 }}>
+        <View key={item.id} style={{ marginBottom: 2 }} wrap={false}>
           <HtmlField html={item.paragraph} style={{ fontSize: 9, color: ctx.colors.text, lineHeight: 1.5 }} ctx={ctx} />
         </View>
       ))}
@@ -136,7 +116,7 @@ function SocialSection({ section, ctx }: { section: ResumeData['user']['social']
     <View style={{ marginBottom: 14 }}>
       <SectionTitle ctx={ctx}>{section.name}</SectionTitle>
       {section.list.filter(item => item.isShow).map(item => (
-        <View key={item.id} style={{ marginBottom: 4 }}>
+        <View key={item.id} style={{ marginBottom: 4 }} wrap={false}>
           <SocialItem item={item} ctx={ctx} />
         </View>
       ))}
@@ -150,7 +130,7 @@ function EducationSection({ section, ctx }: { section: ResumeData['user']['educa
     <View style={{ marginBottom: 14 }}>
       <SectionTitle ctx={ctx}>{section.name}</SectionTitle>
       {section.list.filter(item => item.isShow).map(item => (
-        <View key={item.id} style={{ marginBottom: 6 }}>
+        <View key={item.id} style={{ marginBottom: 6 }} wrap={false}>
           <HtmlField html={item.title} style={{ fontSize: 9, color: ctx.colors.heading, fontWeight: 'bold' }} ctx={ctx} />
           <HtmlField html={item.subtitle} style={{ fontSize: 9, color: ctx.colors.muted }} ctx={ctx} />
           <HtmlField html={item.paragraph} style={{ fontSize: 9, color: ctx.colors.muted, marginTop: 1 }} ctx={ctx} />
@@ -295,7 +275,7 @@ function InlineEducation({ section, ctx }: { section: ResumeData['user']['educat
       <SectionTitle ctx={ctx}>{section.name}</SectionTitle>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
         {section.list.filter(item => item.isShow).map(item => (
-          <View key={item.id} style={{ flexDirection: 'row', gap: 4, alignItems: 'baseline' }}>
+          <View key={item.id} style={{ flexDirection: 'row', gap: 4, alignItems: 'baseline' }} wrap={false}>
             <Text style={{ fontFamily: ctx.font, fontSize: 10, color: ctx.colors.heading, fontWeight: 'bold' }}>
               {stripHtml(item.title ?? '')}
             </Text>
