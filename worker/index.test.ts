@@ -24,7 +24,7 @@ const VALID_TOKEN = `${base64url({ alg: 'RS256', kid: 'test-key' })}.${base64url
 function mockDB(rows: Record<string, unknown>[] = []) {
   const stmt = {
     bind: vi.fn().mockReturnThis(),
-    run: vi.fn().mockResolvedValue({}),
+    run: vi.fn().mockResolvedValue({ meta: { changes: rows.length ? 1 : 0 } }),
     all: vi.fn().mockResolvedValue({ results: rows }),
     first: vi.fn().mockResolvedValue(rows[0] ?? null),
   }
@@ -188,8 +188,8 @@ describe('GET /api/resumes/:id', () => {
 })
 
 describe('PUT /api/resumes/:id', () => {
-  it('updates resume', async () => {
-    const db = mockDB([{ id: 'a0b1c2d3-e4f5-6789-abcd-ef0123456789' }])
+  it('updates resume and returns updated_at', async () => {
+    const db = mockDB([{ id: 'a0b1c2d3-e4f5-6789-abcd-ef0123456789', updated_at: '2024-06-01T00:00:00' }])
     const res = await worker.fetch(
       makeRequest('/api/resumes/a0b1c2d3-e4f5-6789-abcd-ef0123456789', {
         method: 'PUT',
@@ -198,6 +198,9 @@ describe('PUT /api/resumes/:id', () => {
       makeEnv(db),
     )
     expect(res.status).toBe(200)
+    const body = await res.json() as { ok: boolean; updated_at: string }
+    expect(body.ok).toBe(true)
+    expect(body.updated_at).toBeDefined()
   })
 
   it('returns 404 for non-existent resume', async () => {
@@ -210,6 +213,21 @@ describe('PUT /api/resumes/:id', () => {
       makeEnv(db),
     )
     expect(res.status).toBe(404)
+  })
+
+  it('returns 409 when updated_at does not match (optimistic locking)', async () => {
+    const db = mockDB([{ id: 'a0b1c2d3-e4f5-6789-abcd-ef0123456789' }])
+    // run returns 0 changes (stale updated_at), but first still finds the row (it exists)
+    db._stmt.run.mockResolvedValue({ meta: { changes: 0 } })
+    // first() is called once for the exists check after 0 changes - default mock returns the row
+    const res = await worker.fetch(
+      makeRequest('/api/resumes/a0b1c2d3-e4f5-6789-abcd-ef0123456789', {
+        method: 'PUT',
+        body: JSON.stringify({ title: 'Stale', updated_at: '2024-01-01T00:00:00' }),
+      }),
+      makeEnv(db),
+    )
+    expect(res.status).toBe(409)
   })
 })
 

@@ -24,9 +24,20 @@ export function setOnUnauthorized(cb: (() => void) | null) {
   onUnauthorized = cb
 }
 
+export class ConflictError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ConflictError'
+  }
+}
+
 export async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     if (res.status === 401 && onUnauthorized) onUnauthorized()
+    if (res.status === 409) {
+      const err = await res.json().catch(() => ({}))
+      throw new ConflictError((err as { error?: string }).error ?? 'Conflict')
+    }
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `API error: ${res.status}`)
   }
@@ -59,14 +70,18 @@ export async function createResume(idToken: string, title: string, data: string)
   return handleResponse<{ id: string }>(res)
 }
 
-export async function updateResume(idToken: string, id: string, update: { title?: string; data?: string }): Promise<void> {
+export async function updateResume(
+  idToken: string,
+  id: string,
+  update: { title?: string; data?: string; updated_at?: string },
+): Promise<{ updated_at: string }> {
   const res = await fetch(`/api/resumes/${id}`, {
     method: 'PUT',
     headers: headers(idToken),
     body: JSON.stringify(update),
     signal: timeoutSignal(),
   })
-  await handleResponse(res)
+  return handleResponse<{ updated_at: string }>(res)
 }
 
 export async function deleteResume(idToken: string, id: string): Promise<void> {

@@ -6,6 +6,7 @@ import {
   updateResume,
   deleteResume,
   setOnUnauthorized,
+  ConflictError,
 } from './resumeApi'
 
 function mockFetch(body: unknown, status = 200) {
@@ -64,14 +65,28 @@ describe('resumeApi', () => {
   })
 
   describe('updateResume', () => {
-    it('sends PUT with partial update', async () => {
-      const spy = mockFetch({ ok: true })
-      await updateResume('tok', 'r1', { title: 'Updated' })
+    it('sends PUT with partial update and returns updated_at', async () => {
+      const spy = mockFetch({ ok: true, updated_at: '2024-06-01T00:00:00' })
+      const result = await updateResume('tok', 'r1', { title: 'Updated' })
 
       const [url, init] = spy.mock.calls[0]
       expect(url).toBe('/api/resumes/r1')
       expect(init?.method).toBe('PUT')
       expect(JSON.parse(init?.body as string)).toEqual({ title: 'Updated' })
+      expect(result.updated_at).toBe('2024-06-01T00:00:00')
+    })
+
+    it('sends updated_at for optimistic locking', async () => {
+      const spy = mockFetch({ ok: true, updated_at: '2024-06-02T00:00:00' })
+      await updateResume('tok', 'r1', { title: 'Updated', updated_at: '2024-06-01T00:00:00' })
+
+      const [, init] = spy.mock.calls[0]
+      expect(JSON.parse(init?.body as string).updated_at).toBe('2024-06-01T00:00:00')
+    })
+
+    it('throws ConflictError on 409', async () => {
+      mockFetch({ error: 'Conflict: resume was modified by another request' }, 409)
+      await expect(updateResume('tok', 'r1', { title: 'X' })).rejects.toThrow(ConflictError)
     })
   })
 

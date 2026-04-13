@@ -12,6 +12,7 @@ import { JDPanel } from './components/JDPanel'
 import { ResumeList } from './components/ResumeList'
 import { Toolbar } from './components/Toolbar'
 import * as api from './services/resumeApi'
+import { ConflictError } from './services/resumeApi'
 
 const EMPTY_RESUME: ResumeData = {
   version: 1,
@@ -61,6 +62,7 @@ function AppContent() {
 
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const syncCounterRef = useRef(0)
+  const updatedAtRef = useRef<string | null>(null)
   const idTokenRef = useRef(idToken)
   const currentResumeIdRef = useRef(currentResumeId)
 
@@ -78,9 +80,24 @@ function AppContent() {
       api.updateResume(token, id, {
         title: resumeData.title,
         data: JSON.stringify(resumeData),
+        updated_at: updatedAtRef.current ?? undefined,
       })
-        .then(() => { if (syncCounterRef.current === requestId) setSyncStatus('saved') })
-        .catch(() => { if (syncCounterRef.current === requestId) setSyncStatus('error') })
+        .then((res) => {
+          if (syncCounterRef.current === requestId) setSyncStatus('saved')
+          updatedAtRef.current = res.updated_at
+        })
+        .catch((err) => {
+          if (syncCounterRef.current !== requestId) return
+          if (err instanceof ConflictError) {
+            setSyncStatus('error')
+            // Refetch to get the latest updated_at, then retry once
+            api.getResume(token, id).then((record) => {
+              updatedAtRef.current = record.updated_at
+            }).catch(() => { /* ignore refetch failure */ })
+          } else {
+            setSyncStatus('error')
+          }
+        })
     }, SYNC_DEBOUNCE_MS)
   }, [])
 
@@ -103,6 +120,7 @@ function AppContent() {
     try {
       const record = await api.getResume(idToken, id)
       const parsed = JSON.parse(record.data) as ResumeData
+      updatedAtRef.current = record.updated_at
       loadData(parsed)
       setCurrentResumeId(id)
       setActiveTab('edit')
@@ -119,6 +137,7 @@ function AppContent() {
         'New Resume',
         JSON.stringify(EMPTY_RESUME),
       )
+      updatedAtRef.current = null // freshly created, server sets default
       loadData(EMPTY_RESUME)
       setCurrentResumeId(id)
       setResumeListKey((k) => k + 1)

@@ -140,18 +140,11 @@ async function handleGetResume(id: string, user: GoogleUser, env: Env): Promise<
 }
 
 async function handleUpdateResume(id: string, request: Request, user: GoogleUser, env: Env): Promise<Response> {
-  let body: { title?: string; data?: string }
+  let body: { title?: string; data?: string; updated_at?: string }
   try {
-    body = (await request.json()) as { title?: string; data?: string }
+    body = (await request.json()) as { title?: string; data?: string; updated_at?: string }
   } catch {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-  const existing = await env.DB
-    .prepare('SELECT id FROM resumes WHERE id = ? AND google_id = ?')
-    .bind(id, user.googleId)
-    .first()
-  if (!existing) {
-    return Response.json({ error: 'Not found' }, { status: 404 })
   }
   if (body.title !== undefined && (typeof body.title !== 'string' || body.title.length > MAX_TITLE_LENGTH)) {
     return Response.json({ error: 'Invalid title' }, { status: 400 })
@@ -163,11 +156,33 @@ async function handleUpdateResume(id: string, request: Request, user: GoogleUser
   const binds: string[] = []
   if (body.title !== undefined) { sets.push('title = ?'); binds.push(body.title) }
   if (body.data !== undefined) { sets.push('data = ?'); binds.push(body.data) }
-  if (sets.length > 0) {
-    sets.push("updated_at = datetime('now')")
-    await env.DB.prepare(`UPDATE resumes SET ${sets.join(', ')} WHERE id = ?`).bind(...binds, id).run()
+  if (sets.length === 0) {
+    return Response.json({ ok: true, updated_at: body.updated_at })
   }
-  return Response.json({ ok: true })
+  sets.push("updated_at = datetime('now')")
+  const whereClauses = ['id = ?', 'google_id = ?']
+  const whereBinds: string[] = [id, user.googleId]
+  if (body.updated_at) {
+    whereClauses.push('updated_at = ?')
+    whereBinds.push(body.updated_at)
+  }
+  const result = await env.DB
+    .prepare(`UPDATE resumes SET ${sets.join(', ')} WHERE ${whereClauses.join(' AND ')}`)
+    .bind(...binds, ...whereBinds)
+    .run()
+  if (!result.meta.changes) {
+    const exists = await env.DB
+      .prepare('SELECT id FROM resumes WHERE id = ? AND google_id = ?')
+      .bind(id, user.googleId)
+      .first()
+    if (!exists) return Response.json({ error: 'Not found' }, { status: 404 })
+    return Response.json({ error: 'Conflict: resume was modified by another request' }, { status: 409 })
+  }
+  const row = await env.DB
+    .prepare('SELECT updated_at FROM resumes WHERE id = ?')
+    .bind(id)
+    .first<{ updated_at: string }>()
+  return Response.json({ ok: true, updated_at: row!.updated_at })
 }
 
 async function handleDeleteResume(id: string, user: GoogleUser, env: Env): Promise<Response> {
