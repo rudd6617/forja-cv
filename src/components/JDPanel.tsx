@@ -5,7 +5,7 @@ import { analyzeJD, mockAnalyzeJD } from '../services/analyze'
 import { stripHtml } from '../utils/html'
 import { useAuth } from '../hooks/useAuth'
 
-const HISTORY_KEY = 'cv-rabbit-jd-history'
+const HISTORY_KEY = 'forja-cv-jd-history'
 const MAX_HISTORY = 20
 
 interface HistoryEntry {

@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "cv-rabbit",
+  "name": "forja-cv",
   "compatibility_date": "2024-12-01",
   "assets": {
     "directory": "./dist",
@@ -11,7 +11,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "cv-rabbit-db",
+      "database_name": "forja-cv-db",
       "database_id": "58aa02ac-8d2a-468d-8d03-b50d25cf3b8a"
     }
   ]

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ResumeData, ResumeItem, SectionKey } from '../types/resume'
 import { SECTION_KEYS, CURRENT_RESUME_VERSION } from '../types/resume'
 
-const STORAGE_KEY = 'cv-rabbit-resume'
+const STORAGE_KEY = 'forja-cv-resume'
 const SAVE_DEBOUNCE_MS = 500
 const HISTORY_MAX = 50
 const HISTORY_DEBOUNCE_MS = 500

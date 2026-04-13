@@ -111,7 +111,7 @@ export function Toolbar({
       )}
       <div className="px-4 lg:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="text-base lg:text-lg font-bold text-gray-900">CV Rabbit</h1>
+          <h1 className="text-base lg:text-lg font-bold text-gray-900">forja CV</h1>
           {syncStatus === 'saving' && (
             <span className="text-xs text-gray-400">Saving...</span>
           )}

@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react'
 import { useResume } from './useResume'
 import type { ResumeData } from '../types/resume'
 
-const STORAGE_KEY = 'cv-rabbit-resume'
+const STORAGE_KEY = 'forja-cv-resume'
 
 function makeResume(overrides: Partial<ResumeData> = {}): ResumeData {
   return {

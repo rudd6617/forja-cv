@@ -23,7 +23,7 @@ deploy: ## Deploy to Cloudflare
 	npx wrangler deploy
 
 migrate: ## Run D1 migrations (local)
-	npx wrangler d1 migrations apply cv-rabbit-db --local
+	npx wrangler d1 migrations apply forja-cv-db --local
 
 migrate-prod: ## Run D1 migrations (production)
-	npx wrangler d1 migrations apply cv-rabbit-db --remote
+	npx wrangler d1 migrations apply forja-cv-db --remote

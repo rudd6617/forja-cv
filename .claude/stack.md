@@ -7,7 +7,7 @@
 - **AI**: vLLM (OpenAI-compatible API)
 - **Deployment**: Cloudflare Pages + Vite Plugin (`@cloudflare/vite-plugin`)
 - **PDF**: Browser print (`window.print()` + `@media print` CSS)
-- **Database**: Cloudflare D1 (cv-rabbit-db)
+- **Database**: Cloudflare D1 (forja-cv-db)
 - **Auth**: Google Sign-In (ID token)
 - **Data**: D1 + localStorage cache
 - **Target**: ES2023, browser
