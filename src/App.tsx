@@ -89,11 +89,19 @@ function AppContent() {
         .catch((err) => {
           if (syncCounterRef.current !== requestId) return
           if (err instanceof ConflictError) {
-            setSyncStatus('error')
-            // Refetch to get the latest updated_at, then retry once
+            setSyncStatus('syncing')
+            // Refetch latest updated_at and retry once
             api.getResume(token, id).then((record) => {
               updatedAtRef.current = record.updated_at
-            }).catch(() => { /* ignore refetch failure */ })
+              return api.updateResume(token, id, {
+                title: resumeData.title,
+                data: JSON.stringify(resumeData),
+                updated_at: record.updated_at,
+              })
+            }).then((res) => {
+              updatedAtRef.current = res.updated_at
+              setSyncStatus('saved')
+            }).catch(() => { setSyncStatus('error') })
           } else {
             setSyncStatus('error')
           }

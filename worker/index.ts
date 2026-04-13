@@ -157,7 +157,7 @@ async function handleUpdateResume(id: string, request: Request, user: GoogleUser
   if (body.title !== undefined) { sets.push('title = ?'); binds.push(body.title) }
   if (body.data !== undefined) { sets.push('data = ?'); binds.push(body.data) }
   if (sets.length === 0) {
-    return Response.json({ ok: true, updated_at: body.updated_at })
+    return Response.json({ error: 'No fields to update' }, { status: 400 })
   }
   sets.push("updated_at = datetime('now')")
   const whereClauses = ['id = ?', 'google_id = ?']
