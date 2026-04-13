@@ -30,6 +30,7 @@ function mockDB(rows: Record<string, unknown>[] = []) {
   }
   return {
     prepare: vi.fn().mockReturnValue(stmt),
+    batch: vi.fn().mockResolvedValue([{}, { results: rows }]),
     _stmt: stmt,
   }
 }

@@ -282,18 +282,18 @@ function stripHtmlTags(text: string): string {
 
 // ─── Rate Limiting ───
 
-const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX = 3
 
-const rateLimitMap = new Map<string, number[]>()
+async function checkRateLimit(userId: string, db: D1Database): Promise<boolean> {
+  const [, countResult] = await db.batch([
+    db.prepare("DELETE FROM rate_limits WHERE google_id = ? AND requested_at < datetime('now', '-60 seconds')").bind(userId),
+    db.prepare("SELECT COUNT(*) as c FROM rate_limits WHERE google_id = ? AND requested_at >= datetime('now', '-60 seconds')").bind(userId),
+  ])
 
-function checkRateLimit(userId: string): boolean {
-  const now = Date.now()
-  const timestamps = rateLimitMap.get(userId) ?? []
-  const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS)
-  if (recent.length >= RATE_LIMIT_MAX) return false
-  recent.push(now)
-  rateLimitMap.set(userId, recent)
+  const row = countResult.results?.[0] as { c: number } | undefined
+  if (row && row.c >= RATE_LIMIT_MAX) return false
+
+  await db.prepare('INSERT INTO rate_limits (google_id) VALUES (?)').bind(userId).run()
   return true
 }
 
@@ -312,7 +312,7 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
   const authResult = await authenticate(request, env)
   if (authResult instanceof Response) return authResult
 
-  if (!checkRateLimit(authResult.googleId)) {
+  if (!(await checkRateLimit(authResult.googleId, env.DB))) {
     return Response.json(
       { error: 'Too many requests. Please wait a moment before trying again.' },
       { status: 429 },
