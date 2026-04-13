@@ -265,6 +265,24 @@ const CONTACT_FIELDS: FieldDef[] = [
   { key: 'paragraph', label: 'Contact Info', rich: true },
 ]
 
+const PROJECT_FIELDS: FieldDef[] = [
+  { key: 'title', label: 'Project Name' },
+  { key: 'subtitle1', label: 'Role / Tech' },
+  { key: 'subtitle2', label: 'Period' },
+  { key: 'paragraph', label: 'Description', rich: true },
+]
+
+const SKILL_FIELDS: FieldDef[] = [
+  { key: 'title', label: 'Skill' },
+  { key: 'paragraph', label: 'Details', rich: true },
+]
+
+const CERTIFICATE_FIELDS: FieldDef[] = [
+  { key: 'title', label: 'Certificate Name' },
+  { key: 'subtitle', label: 'Issuer' },
+  { key: 'subtitle2', label: 'Date' },
+]
+
 const SOCIAL_FIELDS: FieldDef[] = [
   { key: 'type', label: 'Platform' },
   { key: 'link', label: 'URL' },
@@ -277,7 +295,10 @@ const LIST_SECTIONS: {
   fields: FieldDef[]
 }[] = [
   { key: 'experience', title: 'Experience', fields: EXPERIENCE_FIELDS },
+  { key: 'project', title: 'Projects', fields: PROJECT_FIELDS },
   { key: 'education', title: 'Education', fields: EDUCATION_FIELDS },
+  { key: 'skill', title: 'Skills', fields: SKILL_FIELDS },
+  { key: 'certificate', title: 'Certificates', fields: CERTIFICATE_FIELDS },
   { key: 'contact', title: 'Contact', fields: CONTACT_FIELDS },
   { key: 'social', title: 'Social Media', fields: SOCIAL_FIELDS },
 ]

@@ -147,6 +147,82 @@ function ExperienceSection({
   )
 }
 
+function ProjectSection({
+  section,
+}: {
+  section: ResumeData['user']['project']
+}) {
+  if (!section.isShow) return null
+  return (
+    <div className="mt-5">
+      <SectionTitle>{section.name}</SectionTitle>
+      {section.list
+        .filter((item) => item.isShow)
+        .map((item) => (
+          <ExperienceEntry key={item.id} item={item} />
+        ))}
+    </div>
+  )
+}
+
+function SkillSection({
+  section,
+}: {
+  section: ResumeData['user']['skill']
+}) {
+  if (!section.isShow) return null
+  return (
+    <div className="sidebar-section mb-5">
+      <SectionTitle>{section.name}</SectionTitle>
+      {section.list
+        .filter((item) => item.isShow)
+        .map((item) => (
+          <div key={item.id} className="mb-2">
+            <HtmlContent
+              html={item.title ?? ''}
+              className="cv-heading font-semibold [&>p]:m-0"
+            />
+            <HtmlContent
+              html={item.paragraph ?? ''}
+              className="cv-muted [&>p]:m-0 mt-0.5"
+            />
+          </div>
+        ))}
+    </div>
+  )
+}
+
+function CertificateSection({
+  section,
+}: {
+  section: ResumeData['user']['certificate']
+}) {
+  if (!section.isShow) return null
+  return (
+    <div className="sidebar-section mb-5">
+      <SectionTitle>{section.name}</SectionTitle>
+      {section.list
+        .filter((item) => item.isShow)
+        .map((item) => (
+          <div key={item.id} className="mb-2">
+            <HtmlContent
+              html={item.title ?? ''}
+              className="cv-heading font-semibold [&>p]:m-0"
+            />
+            <HtmlContent
+              html={item.subtitle ?? ''}
+              className="cv-muted [&>p]:m-0"
+            />
+            <HtmlContent
+              html={item.subtitle2 ?? ''}
+              className="cv-muted [&>p]:m-0"
+            />
+          </div>
+        ))}
+    </div>
+  )
+}
+
 interface ResumePreviewProps {
   data: ResumeData
   fontFamily: FontValue
@@ -203,22 +279,26 @@ function Divider() {
   )
 }
 
-function Sidebar({ contact, social, education }: {
+function Sidebar({ contact, social, education, skill, certificate }: {
   contact: ResumeData['user']['contact']
   social: ResumeData['user']['social']
   education: ResumeData['user']['education']
+  skill: ResumeData['user']['skill']
+  certificate: ResumeData['user']['certificate']
 }) {
   return (
     <>
       <ContactSection section={contact} />
       <SocialSection section={social} />
       <EducationSection section={education} />
+      <SkillSection section={skill} />
+      <CertificateSection section={certificate} />
     </>
   )
 }
 
 function LayoutRightSidebar({ data }: { data: ResumeData }) {
-  const { about, summary, experience, education, contact, social } = data.user
+  const { about, summary, experience, project, education, contact, social, skill, certificate } = data.user
   return (
     <>
       <Header about={about} />
@@ -227,12 +307,13 @@ function LayoutRightSidebar({ data }: { data: ResumeData }) {
       <div className="flex px-10 pb-8 gap-8">
         <div className="w-[78%]">
           <ExperienceSection section={experience} />
+          <ProjectSection section={project} />
         </div>
         <div
           className="w-[22%] shrink-0 text-[11px] leading-snug pl-6"
           style={{ borderLeft: '1px solid var(--cv-border)' }}
         >
-          <Sidebar contact={contact} social={social} education={education} />
+          <Sidebar contact={contact} social={social} education={education} skill={skill} certificate={certificate} />
         </div>
       </div>
     </>
@@ -240,7 +321,7 @@ function LayoutRightSidebar({ data }: { data: ResumeData }) {
 }
 
 function LayoutLeftSidebar({ data }: { data: ResumeData }) {
-  const { about, summary, experience, education, contact, social } = data.user
+  const { about, summary, experience, project, education, contact, social, skill, certificate } = data.user
   return (
     <>
       <Header about={about} />
@@ -251,10 +332,11 @@ function LayoutLeftSidebar({ data }: { data: ResumeData }) {
           className="w-[22%] shrink-0 text-[11px] leading-snug pr-6"
           style={{ borderRight: '1px solid var(--cv-border)' }}
         >
-          <Sidebar contact={contact} social={social} education={education} />
+          <Sidebar contact={contact} social={social} education={education} skill={skill} certificate={certificate} />
         </div>
         <div className="w-[78%]">
           <ExperienceSection section={experience} />
+          <ProjectSection section={project} />
         </div>
       </div>
     </>
@@ -316,7 +398,7 @@ function InlineEducation({ section }: { section: ResumeData['user']['education']
 }
 
 function LayoutTopHeader({ data }: { data: ResumeData }) {
-  const { about, summary, experience, education, contact, social } = data.user
+  const { about, summary, experience, project, education, contact, social, skill, certificate } = data.user
   return (
     <>
       <Header about={about}>
@@ -327,25 +409,31 @@ function LayoutTopHeader({ data }: { data: ResumeData }) {
       <Summary summary={summary} />
       <div className="px-10 pb-8">
         <ExperienceSection section={experience} />
+        <ProjectSection section={project} />
         <div className="mt-5">
           <InlineEducation section={education} />
         </div>
+        <SkillSection section={skill} />
+        <CertificateSection section={certificate} />
       </div>
     </>
   )
 }
 
 function LayoutSingleColumn({ data }: { data: ResumeData }) {
-  const { about, summary, experience, education, contact, social } = data.user
+  const { about, summary, experience, project, education, contact, social, skill, certificate } = data.user
   return (
     <>
       <Header about={about} />
       <Summary summary={summary} />
       <div className="px-10 pb-8">
         <ExperienceSection section={experience} />
+        <ProjectSection section={project} />
         <div className="mt-5">
           <InlineEducation section={education} />
         </div>
+        <SkillSection section={skill} />
+        <CertificateSection section={certificate} />
         <div className="flex gap-8 text-[11px] leading-snug mt-4">
           <div className="flex-1">
             <ContactSection section={contact} />
