@@ -26,8 +26,13 @@ export async function analyzeJD(
   idToken: string,
   jd: string,
   data: ResumeData,
+  signal?: AbortSignal,
 ): Promise<AnalysisResult> {
   const request = buildRequest(jd, data)
+  const timeoutSignal = AbortSignal.timeout(ANALYZE_TIMEOUT_MS)
+  const combinedSignal = signal
+    ? AbortSignal.any([signal, timeoutSignal])
+    : timeoutSignal
 
   const res = await fetch('/api/analyze', {
     method: 'POST',
@@ -36,7 +41,7 @@ export async function analyzeJD(
       Authorization: `Bearer ${idToken}`,
     },
     body: JSON.stringify(request),
-    signal: AbortSignal.timeout(ANALYZE_TIMEOUT_MS),
+    signal: combinedSignal,
   })
 
   return handleResponse<AnalysisResult>(res)
@@ -67,15 +72,21 @@ export function mockAnalyzeJD(
   const jdKeywords = techKeywords.filter((k) => jdLower.includes(k))
   const matched = jdKeywords.filter((k) => resumeText.includes(k))
   const missing = jdKeywords.filter((k) => !resumeText.includes(k))
-  const score = jdKeywords.length > 0
+  const keywordCoverage = jdKeywords.length > 0
     ? Math.round((matched.length / jdKeywords.length) * 100)
     : 50
+  const skillMatch = Math.min(100, keywordCoverage + 10)
+  const experienceRelevance = Math.min(100, keywordCoverage + 5)
+  const score = Math.round(
+    skillMatch * 0.4 + experienceRelevance * 0.3 + keywordCoverage * 0.3,
+  )
 
   return new Promise((resolve) =>
     setTimeout(
       () =>
         resolve({
           score,
+          scoreBreakdown: { skillMatch, experienceRelevance, keywordCoverage },
           matchedKeywords: matched,
           missingKeywords: missing,
           suggestions: missing.length > 0

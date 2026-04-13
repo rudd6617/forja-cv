@@ -217,10 +217,14 @@ const SYSTEM_PROMPT = `You are an ATS (Applicant Tracking System) resume optimiz
 You will receive a job description (JD) and a candidate's resume.
 
 Analyze the resume against the JD and return a JSON object with:
-1. "score": ATS match score 0-100
-2. "matchedKeywords": keywords/skills from the JD that ARE in the resume
-3. "missingKeywords": keywords/skills from the JD that are NOT in the resume
-4. "suggestions": array of specific rewrite suggestions
+1. "score": overall ATS match score 0-100
+2. "scoreBreakdown": object with three sub-scores (each 0-100):
+   - "skillMatch": how well the candidate's skills match JD requirements
+   - "experienceRelevance": how relevant the work experience is to the role
+   - "keywordCoverage": percentage of JD keywords found in the resume
+3. "matchedKeywords": keywords/skills from the JD that ARE in the resume
+4. "missingKeywords": keywords/skills from the JD that are NOT in the resume
+5. "suggestions": array of specific rewrite suggestions
 
 Each suggestion must have:
 - "section": "summary" or "experience"
@@ -234,7 +238,7 @@ Rules:
 - Keep the candidate's original language (Traditional Chinese or English as-is)
 - Do NOT fabricate experience. Only rephrase existing content to better match JD keywords.
 - Focus on measurable impact and action verbs.
-- Return ONLY valid JSON, no markdown fences, no extra text.`
+- Return ONLY the JSON object. No thinking, no explanation, no markdown fences, no extra text.`
 
 function validateUrl(url: string): boolean {
   try {
@@ -271,8 +275,33 @@ function validateAnalyzeBody(body: unknown): body is AnalyzeRequestBody {
   return true
 }
 
+// Regex-based: DOMParser is unavailable in the Workers runtime
 function stripHtmlTags(text: string): string {
   return text.replace(/<[^>]*>?/g, '')
+}
+
+// ─── Rate Limiting ───
+
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX = 3
+
+const rateLimitMap = new Map<string, number[]>()
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now()
+  const timestamps = rateLimitMap.get(userId) ?? []
+  const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS)
+  if (recent.length >= RATE_LIMIT_MAX) return false
+  recent.push(now)
+  rateLimitMap.set(userId, recent)
+  return true
+}
+
+function extractJson(text: string): string {
+  const trimmed = text.trim()
+  if (trimmed.startsWith('{')) return trimmed
+  const match = trimmed.match(/\{[\s\S]*\}/)
+  return match ? match[0] : trimmed
 }
 
 async function handleAnalyze(request: Request, env: Env): Promise<Response> {
@@ -282,6 +311,13 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
 
   const authResult = await authenticate(request, env)
   if (authResult instanceof Response) return authResult
+
+  if (!checkRateLimit(authResult.googleId)) {
+    return Response.json(
+      { error: 'Too many requests. Please wait a moment before trying again.' },
+      { status: 429 },
+    )
+  }
 
   const { VLLM_API_URL, VLLM_MODEL } = env
 
@@ -340,6 +376,7 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
       ],
       temperature: 0.3,
       max_tokens: 4096,
+      chat_template_kwargs: { enable_thinking: false },
     }),
   })
 
@@ -353,10 +390,10 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
   const result = await response.json() as {
     choices: { message: { content: string } }[]
   }
-  const content = result.choices[0]?.message?.content ?? ''
+  const rawContent = result.choices[0]?.message?.content ?? ''
 
   try {
-    const parsed = JSON.parse(content)
+    const parsed = JSON.parse(extractJson(rawContent))
 
     if (Array.isArray(parsed.suggestions)) {
       parsed.suggestions = parsed.suggestions.map(
