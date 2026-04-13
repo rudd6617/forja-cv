@@ -40,11 +40,31 @@ Font.register({
   ],
 })
 
+Font.register({
+  family: 'Inter',
+  fonts: [
+    { src: '/fonts/Inter-Regular.otf' },
+    { src: '/fonts/Inter-Bold.otf', fontWeight: 'bold' },
+    { src: '/fonts/Inter-Italic.otf', fontStyle: 'italic' },
+    { src: '/fonts/Inter-BoldItalic.otf', fontWeight: 'bold', fontStyle: 'italic' },
+  ],
+})
+
+Font.register({
+  family: 'Lato',
+  fonts: [
+    { src: '/fonts/Lato-Regular.ttf' },
+    { src: '/fonts/Lato-Bold.ttf', fontWeight: 'bold' },
+    { src: '/fonts/Lato-Italic.ttf', fontStyle: 'italic' },
+    { src: '/fonts/Lato-BoldItalic.ttf', fontWeight: 'bold', fontStyle: 'italic' },
+  ],
+})
+
 Font.registerHyphenationCallback((word) => [word])
 
 const FONT_MAP: Record<FontValue, string> = {
-  'gill-sans': 'Noto Sans TC',
-  'inter': 'Noto Sans TC',
+  'gill-sans': 'Lato',
+  'inter': 'Inter',
   'noto-sans-tc': 'Noto Sans TC',
   'georgia': 'Noto Serif TC',
 }
@@ -168,49 +188,6 @@ function ExperienceSection({ section, ctx }: { section: ResumeData['user']['expe
   )
 }
 
-function ProjectSection({ section, ctx }: { section: ResumeData['user']['project']; ctx: PdfCtx }) {
-  if (!section.isShow) return null
-  return (
-    <View style={{ marginTop: 14 }}>
-      <SectionTitle ctx={ctx}>{section.name}</SectionTitle>
-      {section.list.filter(item => item.isShow).map(item => (
-        <ExperienceEntry key={item.id} item={item} ctx={ctx} />
-      ))}
-    </View>
-  )
-}
-
-function SkillSection({ section, ctx }: { section: ResumeData['user']['skill']; ctx: PdfCtx }) {
-  if (!section.isShow) return null
-  return (
-    <View style={{ marginBottom: 14 }}>
-      <SectionTitle ctx={ctx}>{section.name}</SectionTitle>
-      {section.list.filter(item => item.isShow).map(item => (
-        <View key={item.id} style={{ marginBottom: 6 }}>
-          <HtmlField html={item.title} style={{ fontSize: 9, color: ctx.colors.heading, fontWeight: 'bold' }} ctx={ctx} />
-          <HtmlField html={item.paragraph} style={{ fontSize: 9, color: ctx.colors.muted, marginTop: 1 }} ctx={ctx} />
-        </View>
-      ))}
-    </View>
-  )
-}
-
-function CertificateSection({ section, ctx }: { section: ResumeData['user']['certificate']; ctx: PdfCtx }) {
-  if (!section.isShow) return null
-  return (
-    <View style={{ marginBottom: 14 }}>
-      <SectionTitle ctx={ctx}>{section.name}</SectionTitle>
-      {section.list.filter(item => item.isShow).map(item => (
-        <View key={item.id} style={{ marginBottom: 6 }}>
-          <HtmlField html={item.title} style={{ fontSize: 9, color: ctx.colors.heading, fontWeight: 'bold' }} ctx={ctx} />
-          <HtmlField html={item.subtitle} style={{ fontSize: 9, color: ctx.colors.muted }} ctx={ctx} />
-          <HtmlField html={item.subtitle2} style={{ fontSize: 9, color: ctx.colors.muted }} ctx={ctx} />
-        </View>
-      ))}
-    </View>
-  )
-}
-
 function Header({ about, ctx, children }: { about: ResumeData['user']['about']; ctx: PdfCtx; children?: React.ReactNode }) {
   if (!about.isShow) return null
   return (
@@ -250,12 +227,10 @@ function Divider({ ctx }: { ctx: PdfCtx }) {
   return <View style={{ marginHorizontal: 36, marginBottom: 12, borderTopWidth: 1, borderTopColor: ctx.colors.border }} />
 }
 
-function Sidebar({ contact, social, education, skill, certificate, ctx }: {
+function Sidebar({ contact, social, education, ctx }: {
   contact: ResumeData['user']['contact']
   social: ResumeData['user']['social']
   education: ResumeData['user']['education']
-  skill: ResumeData['user']['skill']
-  certificate: ResumeData['user']['certificate']
   ctx: PdfCtx
 }) {
   return (
@@ -263,8 +238,6 @@ function Sidebar({ contact, social, education, skill, certificate, ctx }: {
       <ContactSection section={contact} ctx={ctx} />
       <SocialSection section={social} ctx={ctx} />
       <EducationSection section={education} ctx={ctx} />
-      <SkillSection section={skill} ctx={ctx} />
-      <CertificateSection section={certificate} ctx={ctx} />
     </>
   )
 }
@@ -272,19 +245,18 @@ function Sidebar({ contact, social, education, skill, certificate, ctx }: {
 // ─── Layouts ───
 
 function LayoutSidebar({ data, ctx, side }: { data: ResumeData; ctx: PdfCtx; side: 'left' | 'right' }) {
-  const { about, summary, experience, project, education, contact, social, skill, certificate } = data.user
+  const { about, summary, experience, education, contact, social } = data.user
   const sidebarBorder = side === 'left'
     ? { paddingRight: 16, borderRightWidth: 1, borderRightColor: ctx.colors.border }
     : { paddingLeft: 16, borderLeftWidth: 1, borderLeftColor: ctx.colors.border }
   const sidebarView = (
     <View style={{ width: '22%', flexShrink: 0, ...sidebarBorder }}>
-      <Sidebar contact={contact} social={social} education={education} skill={skill} certificate={certificate} ctx={ctx} />
+      <Sidebar contact={contact} social={social} education={education} ctx={ctx} />
     </View>
   )
   const mainView = (
     <View style={{ width: '78%' }}>
       <ExperienceSection section={experience} ctx={ctx} />
-      <ProjectSection section={project} ctx={ctx} />
     </View>
   )
   return (
@@ -341,7 +313,7 @@ function InlineEducation({ section, ctx }: { section: ResumeData['user']['educat
 }
 
 function LayoutTopHeader({ data, ctx }: { data: ResumeData; ctx: PdfCtx }) {
-  const { about, summary, experience, project, education, contact, social, skill, certificate } = data.user
+  const { about, summary, experience, education, contact, social } = data.user
   return (
     <>
       <Header about={about} ctx={ctx}>
@@ -350,27 +322,21 @@ function LayoutTopHeader({ data, ctx }: { data: ResumeData; ctx: PdfCtx }) {
       <Summary summary={summary} ctx={ctx} />
       <View style={{ paddingHorizontal: 36, paddingBottom: 28 }}>
         <ExperienceSection section={experience} ctx={ctx} />
-        <ProjectSection section={project} ctx={ctx} />
         <InlineEducation section={education} ctx={ctx} />
-        <SkillSection section={skill} ctx={ctx} />
-        <CertificateSection section={certificate} ctx={ctx} />
       </View>
     </>
   )
 }
 
 function LayoutSingleColumn({ data, ctx }: { data: ResumeData; ctx: PdfCtx }) {
-  const { about, summary, experience, project, education, contact, social, skill, certificate } = data.user
+  const { about, summary, experience, education, contact, social } = data.user
   return (
     <>
       <Header about={about} ctx={ctx} />
       <Summary summary={summary} ctx={ctx} />
       <View style={{ paddingHorizontal: 36, paddingBottom: 28 }}>
         <ExperienceSection section={experience} ctx={ctx} />
-        <ProjectSection section={project} ctx={ctx} />
         <InlineEducation section={education} ctx={ctx} />
-        <SkillSection section={skill} ctx={ctx} />
-        <CertificateSection section={certificate} ctx={ctx} />
         <View style={{ flexDirection: 'row', gap: 24, marginTop: 12 }}>
           <View style={{ flex: 1 }}>
             <ContactSection section={contact} ctx={ctx} />
