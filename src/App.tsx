@@ -89,7 +89,7 @@ function AppContent() {
         .catch((err) => {
           if (syncCounterRef.current !== requestId) return
           if (err instanceof ConflictError) {
-            setSyncStatus('syncing')
+            setSyncStatus('saving')
             // Refetch latest updated_at and retry once
             api.getResume(token, id).then((record) => {
               updatedAtRef.current = record.updated_at

@@ -348,7 +348,7 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
                   <span className="text-xs text-gray-700 truncate max-w-[70%]">
                     {entry.jd.substring(0, 60)}...
                   </span>
-                  <span className={`text-xs font-semibold ${scoreColorClass(entry.result.score)}`}>
+                  <span className={`text-xs font-semibold ${scoreStyles[scoreLevel(entry.result.score)].text}`}>
                     {entry.result.score}%
                   </span>
                 </div>
