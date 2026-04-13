@@ -141,11 +141,11 @@ function SuggestionCard({
           )}
           <button
             onClick={onApply}
-            disabled={applied}
-            className={`px-2.5 py-1 text-xs font-medium rounded cursor-pointer ${
-              applied
-                ? 'bg-gray-100 text-gray-400'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+            disabled={applied || stale}
+            className={`px-2.5 py-1 text-xs font-medium rounded ${
+              applied || stale
+                ? 'bg-gray-100 text-gray-400 cursor-default'
+                : 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
             }`}
           >
             {applied ? 'Applied' : 'Apply'}
@@ -257,7 +257,7 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
     if (!result) return
     const next = new Set(appliedIndices)
     result.suggestions.forEach((s, i) => {
-      if (!next.has(i)) {
+      if (!next.has(i) && getCurrentContent(data, s) === s.original) {
         onApplySuggestion(s)
         next.add(i)
       }
@@ -278,8 +278,10 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
     setHistory([])
   }, [])
 
-  const hasUnapplied = result
-    ? result.suggestions.some((_, i) => !appliedIndices.has(i))
+  const hasApplicable = result
+    ? result.suggestions.some(
+        (s, i) => !appliedIndices.has(i) && getCurrentContent(data, s) === s.original,
+      )
     : false
 
   const someApplied = appliedIndices.size > 0
@@ -390,7 +392,7 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
                 <h4 className="text-xs font-semibold text-gray-500">
                   Suggestions
                 </h4>
-                {hasUnapplied && result.suggestions.length > 1 && (
+                {hasApplicable && result.suggestions.length > 1 && (
                   <button
                     onClick={handleApplyAll}
                     className="px-2.5 py-1 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
