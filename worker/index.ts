@@ -1,6 +1,6 @@
 interface Env {
-  VLLM_API_URL: string
-  VLLM_MODEL: string
+  LLM_API_URL: string
+  LLM_MODEL: string
   DB: D1Database
   GOOGLE_CLIENT_ID: string
 }
@@ -334,11 +334,18 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
     )
   }
 
-  const { VLLM_API_URL, VLLM_MODEL } = env
+  const { LLM_API_URL, LLM_MODEL } = env
 
-  if (!VLLM_API_URL || !validateUrl(VLLM_API_URL)) {
+  if (!LLM_API_URL || !validateUrl(LLM_API_URL)) {
     return Response.json(
-      { error: 'VLLM_API_URL not configured or invalid' },
+      { error: 'LLM_API_URL not configured or invalid' },
+      { status: 500 },
+    )
+  }
+
+  if (!LLM_MODEL) {
+    return Response.json(
+      { error: 'LLM_MODEL not configured' },
       { status: 500 },
     )
   }
@@ -379,19 +386,18 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
     )
     .join('\n\n')}`
 
-  const response = await fetch(`${VLLM_API_URL}/chat/completions`, {
+  const response = await fetch(`${LLM_API_URL}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(120_000),
     body: JSON.stringify({
-      model: VLLM_MODEL || 'default',
+      model: LLM_MODEL,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userMessage },
       ],
       temperature: 0.3,
       max_tokens: 4096,
-      chat_template_kwargs: { enable_thinking: false },
     }),
   })
 

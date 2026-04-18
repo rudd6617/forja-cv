@@ -20,7 +20,7 @@ function buildRequest(jd: string, data: ResumeData): AnalyzeRequest {
   }
 }
 
-const ANALYZE_TIMEOUT_MS = 65_000
+const ANALYZE_TIMEOUT_MS = 130_000
 
 export async function analyzeJD(
   idToken: string,

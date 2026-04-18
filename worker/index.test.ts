@@ -39,8 +39,8 @@ function makeEnv(db = mockDB()) {
   return {
     DB: db as unknown as D1Database,
     GOOGLE_CLIENT_ID: 'test-client-id',
-    VLLM_API_URL: 'https://vllm.example.com',
-    VLLM_MODEL: 'test-model',
+    LLM_API_URL: 'https://llm.example.com',
+    LLM_MODEL: 'test-model',
   }
 }
 
