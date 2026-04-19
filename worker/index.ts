@@ -193,7 +193,10 @@ async function handleDeleteResume(id: string, user: GoogleUser, env: Env): Promi
   if (!existing) {
     return Response.json({ error: 'Not found' }, { status: 404 })
   }
-  await env.DB.prepare('DELETE FROM resumes WHERE id = ? AND google_id = ?').bind(id, user.googleId).run()
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM applications WHERE resume_id = ? AND google_id = ?').bind(id, user.googleId),
+    env.DB.prepare('DELETE FROM resumes WHERE id = ? AND google_id = ?').bind(id, user.googleId),
+  ])
   return Response.json({ ok: true })
 }
 

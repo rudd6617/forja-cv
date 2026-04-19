@@ -249,6 +249,19 @@ describe('DELETE /api/resumes/:id', () => {
     )
     expect(res.status).toBe(404)
   })
+
+  it('cascades delete to applications via batch', async () => {
+    const db = mockDB([{ id: 'a0b1c2d3-e4f5-6789-abcd-ef0123456789' }])
+    const res = await worker.fetch(
+      makeRequest('/api/resumes/a0b1c2d3-e4f5-6789-abcd-ef0123456789', { method: 'DELETE' }),
+      makeEnv(db),
+    )
+    expect(res.status).toBe(200)
+    expect(db.batch).toHaveBeenCalledOnce()
+    const calls = (db.prepare as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0])
+    expect(calls).toContain('DELETE FROM applications WHERE resume_id = ? AND google_id = ?')
+    expect(calls).toContain('DELETE FROM resumes WHERE id = ? AND google_id = ?')
+  })
 })
 
 describe('POST /api/analyze', () => {
