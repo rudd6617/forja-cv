@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ResumeData } from '../types/resume'
 import type { AnalysisResult, ScoreBreakdown, Suggestion } from '../types/analysis'
-import { analyzeJD, mockAnalyzeJD } from '../services/analyze'
+import { analyzeJD, mockAnalyzeJD, AnalysisError } from '../services/analyze'
+import { createApplication } from '../services/applicationApi'
 import { stripHtml } from '../utils/html'
 import { useAuth } from '../hooks/useAuth'
 
@@ -41,7 +42,9 @@ function scoreLevel(score: number): keyof typeof scoreStyles {
 
 interface JDPanelProps {
   data: ResumeData
+  resumeId: string | null
   onApplySuggestion: (suggestion: Suggestion) => void
+  onRevertSuggestion: (suggestion: Suggestion) => void
 }
 
 function ScoreBadge({ score, previousScore }: { score: number; previousScore?: number }) {
@@ -118,11 +121,13 @@ function KeywordList({
 function SuggestionCard({
   suggestion,
   onApply,
+  onRevert,
   applied,
   stale,
 }: {
   suggestion: Suggestion
   onApply: () => void
+  onRevert: () => void
   applied: boolean
   stale: boolean
 }) {
@@ -131,25 +136,43 @@ function SuggestionCard({
       ? 'Summary'
       : `Experience #${(suggestion.index ?? 0) + 1}`
 
+  const cardClass = applied
+    ? 'border-emerald-300 bg-emerald-50'
+    : stale
+      ? 'border-yellow-300 bg-yellow-50/50'
+      : 'border-gray-200'
+
   return (
-    <div className={`border rounded-lg p-3 mb-3 ${stale ? 'border-yellow-300 bg-yellow-50/50' : 'border-gray-200'}`}>
+    <div className={`border rounded-lg p-3 mb-3 ${cardClass}`}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold text-gray-500">{label}</span>
         <div className="flex items-center gap-1.5">
+          {applied && (
+            <span className="text-[10px] font-semibold text-emerald-700">applied</span>
+          )}
           {stale && !applied && (
             <span className="text-[10px] text-yellow-600">changed</span>
           )}
-          <button
-            onClick={onApply}
-            disabled={applied || stale}
-            className={`px-2.5 py-1 text-xs font-medium rounded ${
-              applied || stale
-                ? 'bg-gray-100 text-gray-400 cursor-default'
-                : 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
-            }`}
-          >
-            {applied ? 'Applied' : 'Apply'}
-          </button>
+          {applied ? (
+            <button
+              onClick={onRevert}
+              className="px-2.5 py-1 text-xs font-medium rounded bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 cursor-pointer"
+            >
+              Revert
+            </button>
+          ) : (
+            <button
+              onClick={onApply}
+              disabled={stale}
+              className={`px-2.5 py-1 text-xs font-medium rounded ${
+                stale
+                  ? 'bg-gray-100 text-gray-400 cursor-default'
+                  : 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
+              }`}
+            >
+              Apply
+            </button>
+          )}
         </div>
       </div>
       <p className="text-xs text-gray-500 mb-2">{suggestion.reason}</p>
@@ -173,13 +196,54 @@ function SuggestionCard({
   )
 }
 
-function ElapsedTimer() {
+const PHASES: { threshold: number; label: string }[] = [
+  { threshold: 0, label: 'Sending request' },
+  { threshold: 2, label: 'Waiting for LLM' },
+  { threshold: 10, label: 'LLM is analyzing' },
+  { threshold: 30, label: 'Still thinking' },
+  { threshold: 60, label: 'Complex analysis' },
+  { threshold: 100, label: 'Almost at timeout (130s)' },
+]
+
+function currentPhaseIndex(elapsed: number): number {
+  let idx = 0
+  for (let i = 0; i < PHASES.length; i++) {
+    if (elapsed >= PHASES[i].threshold) idx = i
+  }
+  return idx
+}
+
+function AnalyzeProgress() {
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
     const id = setInterval(() => setElapsed((e) => e + 1), 1000)
     return () => clearInterval(id)
   }, [])
-  return <span className="tabular-nums">{elapsed}s</span>
+  const currentIdx = currentPhaseIndex(elapsed)
+  return (
+    <div className="space-y-1">
+      {PHASES.slice(0, currentIdx + 1).map((p, i) => {
+        const isCurrent = i === currentIdx
+        return (
+          <div key={i} className="flex items-center gap-2 text-sm">
+            <span className="font-mono text-xs opacity-60">
+              [{i + 1}/{PHASES.length}]
+            </span>
+            <span className={isCurrent ? 'font-medium' : 'opacity-60'}>
+              {p.label}
+            </span>
+            {isCurrent ? (
+              <span className="tabular-nums text-xs opacity-75 ml-auto">
+                {elapsed}s
+              </span>
+            ) : (
+              <span className="text-xs opacity-50 ml-auto">✓</span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function getCurrentContent(data: ResumeData, suggestion: Suggestion): string {
@@ -193,13 +257,87 @@ function getCurrentContent(data: ResumeData, suggestion: Suggestion): string {
   return ''
 }
 
-export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
+interface SaveAsApplicationProps {
+  idToken: string
+  resumeId: string
+  resumeData: ResumeData
+  jd: string
+  result: AnalysisResult
+}
+
+function SaveAsApplication({ idToken, resumeId, resumeData, jd, result }: SaveAsApplicationProps) {
+  const [company, setCompany] = useState('')
+  const [position, setPosition] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSave = async () => {
+    if (!company.trim() || !position.trim()) return
+    setSaving(true)
+    setError(null)
+    try {
+      await createApplication(idToken, {
+        resume_id: resumeId,
+        company: company.trim(),
+        position: position.trim(),
+        jd,
+        score: result.score,
+        analysis: result,
+        resume_snapshot: JSON.stringify(resumeData),
+      })
+      setSaved(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (saved) {
+    return (
+      <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+        Saved to Applications. Switch to the Applications tab to view.
+      </div>
+    )
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-3 space-y-2">
+      <h4 className="text-xs font-semibold text-gray-500">Save as Application</h4>
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+          placeholder="Company"
+          className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+        />
+        <input
+          value={position}
+          onChange={(e) => setPosition(e.target.value)}
+          placeholder="Position"
+          className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+        />
+      </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <button
+        onClick={handleSave}
+        disabled={!company.trim() || !position.trim() || saving}
+        className="w-full py-1.5 bg-gray-900 text-white text-xs font-medium rounded hover:bg-gray-800 disabled:opacity-50 cursor-pointer disabled:cursor-default"
+      >
+        {saving ? 'Saving...' : 'Save'}
+      </button>
+    </div>
+  )
+}
+
+export function JDPanel({ data, resumeId, onApplySuggestion, onRevertSuggestion }: JDPanelProps) {
   const { idToken } = useAuth()
   const [jdText, setJdText] = useState('')
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [previousScore, setPreviousScore] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<Error | null>(null)
   const [appliedIndices, setAppliedIndices] = useState<Set<number>>(new Set())
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory)
   const [showHistory, setShowHistory] = useState(false)
@@ -235,7 +373,7 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
       ])
     } catch (err) {
       if (controller.signal.aborted) return
-      setError(err instanceof Error ? err.message : 'Analysis failed')
+      setError(err instanceof Error ? err : new Error('Analysis failed'))
     } finally {
       abortRef.current = null
       setLoading(false)
@@ -251,6 +389,15 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
   const handleApply = (suggestion: Suggestion, index: number) => {
     onApplySuggestion(suggestion)
     setAppliedIndices((prev) => new Set(prev).add(index))
+  }
+
+  const handleRevert = (suggestion: Suggestion, index: number) => {
+    onRevertSuggestion(suggestion)
+    setAppliedIndices((prev) => {
+      const next = new Set(prev)
+      next.delete(index)
+      return next
+    })
   }
 
   const handleApplyAll = () => {
@@ -300,10 +447,9 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
         {loading ? (
           <button
             onClick={handleCancel}
-            className="flex-1 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 cursor-pointer flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 cursor-pointer"
           >
-            <span>Cancel</span>
-            <ElapsedTimer />
+            Cancel
           </button>
         ) : (
           <button
@@ -323,6 +469,15 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
           </button>
         )}
       </div>
+
+      {loading && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-start gap-2">
+          <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse mt-2 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <AnalyzeProgress />
+          </div>
+        </div>
+      )}
 
       {showHistory && history.length > 0 && (
         <div className="border border-gray-200 rounded-lg">
@@ -362,8 +517,16 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
       )}
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-          {error}
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 space-y-2">
+          <p>{error.message}</p>
+          {error instanceof AnalysisError && error.preview && (
+            <details className="text-xs text-red-600">
+              <summary className="cursor-pointer">LLM raw response (preview)</summary>
+              <pre className="mt-1 p-2 bg-white border border-red-200 rounded whitespace-pre-wrap break-all font-mono text-[11px]">
+                {error.preview}
+              </pre>
+            </details>
+          )}
         </div>
       )}
 
@@ -406,11 +569,22 @@ export function JDPanel({ data, onApplySuggestion }: JDPanelProps) {
                   key={i}
                   suggestion={s}
                   onApply={() => handleApply(s, i)}
+                  onRevert={() => handleRevert(s, i)}
                   applied={appliedIndices.has(i)}
                   stale={getCurrentContent(data, s) !== s.original}
                 />
               ))}
             </div>
+          )}
+
+          {idToken && resumeId && (
+            <SaveAsApplication
+              idToken={idToken}
+              resumeId={resumeId}
+              resumeData={data}
+              jd={jdText}
+              result={result}
+            />
           )}
         </div>
       )}

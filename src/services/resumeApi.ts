@@ -11,7 +11,7 @@ interface ResumeRecord {
   updated_at: string
 }
 
-function headers(idToken: string) {
+export function authHeaders(idToken: string) {
   return {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${idToken}`,
@@ -46,26 +46,26 @@ export async function handleResponse<T>(res: Response): Promise<T> {
 
 const TIMEOUT_MS = 15_000
 
-function timeoutSignal(): AbortSignal {
+export function apiTimeoutSignal(): AbortSignal {
   return AbortSignal.timeout(TIMEOUT_MS)
 }
 
 export async function listResumes(idToken: string): Promise<ResumeSummary[]> {
-  const res = await fetch('/api/resumes', { headers: headers(idToken), signal: timeoutSignal() })
+  const res = await fetch('/api/resumes', { headers: authHeaders(idToken), signal: apiTimeoutSignal() })
   return handleResponse<ResumeSummary[]>(res)
 }
 
 export async function getResume(idToken: string, id: string): Promise<ResumeRecord> {
-  const res = await fetch(`/api/resumes/${id}`, { headers: headers(idToken), signal: timeoutSignal() })
+  const res = await fetch(`/api/resumes/${id}`, { headers: authHeaders(idToken), signal: apiTimeoutSignal() })
   return handleResponse<ResumeRecord>(res)
 }
 
 export async function createResume(idToken: string, title: string, data: string): Promise<{ id: string }> {
   const res = await fetch('/api/resumes', {
     method: 'POST',
-    headers: headers(idToken),
+    headers: authHeaders(idToken),
     body: JSON.stringify({ title, data }),
-    signal: timeoutSignal(),
+    signal: apiTimeoutSignal(),
   })
   return handleResponse<{ id: string }>(res)
 }
@@ -77,9 +77,9 @@ export async function updateResume(
 ): Promise<{ updated_at: string }> {
   const res = await fetch(`/api/resumes/${id}`, {
     method: 'PUT',
-    headers: headers(idToken),
+    headers: authHeaders(idToken),
     body: JSON.stringify(update),
-    signal: timeoutSignal(),
+    signal: apiTimeoutSignal(),
   })
   return handleResponse<{ updated_at: string }>(res)
 }
@@ -87,8 +87,8 @@ export async function updateResume(
 export async function deleteResume(idToken: string, id: string): Promise<void> {
   const res = await fetch(`/api/resumes/${id}`, {
     method: 'DELETE',
-    headers: headers(idToken),
-    signal: timeoutSignal(),
+    headers: authHeaders(idToken),
+    signal: apiTimeoutSignal(),
   })
   await handleResponse(res)
 }

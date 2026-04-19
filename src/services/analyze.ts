@@ -1,7 +1,15 @@
 import type { ResumeData } from '../types/resume'
 import type { AnalysisResult, AnalyzeRequest } from '../types/analysis'
 import { stripHtml } from '../utils/html'
-import { handleResponse } from './resumeApi'
+
+export class AnalysisError extends Error {
+  preview?: string
+  constructor(message: string, preview?: string) {
+    super(message)
+    this.name = 'AnalysisError'
+    this.preview = preview
+  }
+}
 
 function buildRequest(jd: string, data: ResumeData): AnalyzeRequest {
   return {
@@ -44,7 +52,17 @@ export async function analyzeJD(
     signal: combinedSignal,
   })
 
-  return handleResponse<AnalysisResult>(res)
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string
+      preview?: string
+    }
+    throw new AnalysisError(
+      body.error ?? `API error: ${res.status}`,
+      body.preview,
+    )
+  }
+  return res.json() as Promise<AnalysisResult>
 }
 
 export function mockAnalyzeJD(

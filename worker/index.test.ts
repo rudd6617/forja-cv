@@ -283,6 +283,164 @@ describe('POST /api/analyze', () => {
   })
 })
 
+describe('GET /api/applications', () => {
+  it('returns list of applications', async () => {
+    const rows = [{
+      id: 'a0b1c2d3-e4f5-6789-abcd-ef0123456789',
+      resume_id: 'r1', company: 'Acme', position: 'Eng',
+      status: 'draft', score: 80, updated_at: '2026-04-19',
+    }]
+    const db = mockDB(rows)
+    const res = await worker.fetch(makeRequest('/api/applications'), makeEnv(db))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toEqual(rows)
+  })
+
+  it('filters by status', async () => {
+    const db = mockDB([])
+    const res = await worker.fetch(makeRequest('/api/applications?status=applied'), makeEnv(db))
+    expect(res.status).toBe(200)
+  })
+
+  it('rejects invalid status filter', async () => {
+    const res = await worker.fetch(makeRequest('/api/applications?status=bogus'), makeEnv())
+    expect(res.status).toBe(400)
+  })
+})
+
+describe('POST /api/applications', () => {
+  it('creates application and returns id', async () => {
+    const db = mockDB()
+    // resume ownership check returns a row, then count returns 0
+    db._stmt.first
+      .mockResolvedValueOnce({ id: 'r1' })   // resume lookup
+      .mockResolvedValueOnce({ c: 0 })        // count check
+    const res = await worker.fetch(
+      makeRequest('/api/applications', {
+        method: 'POST',
+        body: JSON.stringify({
+          resume_id: 'r1', company: 'Acme', position: 'Eng',
+          jd: 'Some JD', score: 85,
+        }),
+      }),
+      makeEnv(db),
+    )
+
+    expect(res.status).toBe(201)
+    const body = await res.json() as { id: string }
+    expect(body.id).toBeDefined()
+  })
+
+  it('rejects missing company', async () => {
+    const res = await worker.fetch(
+      makeRequest('/api/applications', {
+        method: 'POST',
+        body: JSON.stringify({ resume_id: 'r1', position: 'Eng' }),
+      }),
+      makeEnv(),
+    )
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects when resume is not owned by user', async () => {
+    const db = mockDB()
+    db._stmt.first.mockResolvedValueOnce(null)  // no resume
+    const res = await worker.fetch(
+      makeRequest('/api/applications', {
+        method: 'POST',
+        body: JSON.stringify({ resume_id: 'x', company: 'Acme', position: 'Eng' }),
+      }),
+      makeEnv(db),
+    )
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects invalid status', async () => {
+    const res = await worker.fetch(
+      makeRequest('/api/applications', {
+        method: 'POST',
+        body: JSON.stringify({
+          resume_id: 'r1', company: 'A', position: 'E', status: 'bogus',
+        }),
+      }),
+      makeEnv(),
+    )
+    expect(res.status).toBe(400)
+  })
+})
+
+describe('PATCH /api/applications/:id', () => {
+  it('updates application', async () => {
+    const db = mockDB([{ id: 'a0b1c2d3-e4f5-6789-abcd-ef0123456789' }])
+    const res = await worker.fetch(
+      makeRequest('/api/applications/a0b1c2d3-e4f5-6789-abcd-ef0123456789', {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'applied' }),
+      }),
+      makeEnv(db),
+    )
+    expect(res.status).toBe(200)
+  })
+
+  it('rejects invalid status', async () => {
+    const res = await worker.fetch(
+      makeRequest('/api/applications/a0b1c2d3-e4f5-6789-abcd-ef0123456789', {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'bogus' }),
+      }),
+      makeEnv(),
+    )
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 404 when application not found', async () => {
+    const db = mockDB()
+    db._stmt.run.mockResolvedValue({ meta: { changes: 0 } })
+    const res = await worker.fetch(
+      makeRequest('/api/applications/00000000-0000-0000-0000-000000000000', {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'applied' }),
+      }),
+      makeEnv(db),
+    )
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 400 when no fields to update', async () => {
+    const res = await worker.fetch(
+      makeRequest('/api/applications/a0b1c2d3-e4f5-6789-abcd-ef0123456789', {
+        method: 'PATCH',
+        body: JSON.stringify({}),
+      }),
+      makeEnv(),
+    )
+    expect(res.status).toBe(400)
+  })
+})
+
+describe('DELETE /api/applications/:id', () => {
+  it('deletes application', async () => {
+    const db = mockDB([{ id: 'a0b1c2d3-e4f5-6789-abcd-ef0123456789' }])
+    const res = await worker.fetch(
+      makeRequest('/api/applications/a0b1c2d3-e4f5-6789-abcd-ef0123456789', { method: 'DELETE' }),
+      makeEnv(db),
+    )
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 404 for non-existent application', async () => {
+    const db = mockDB()
+    db._stmt.run.mockResolvedValue({ meta: { changes: 0 } })
+    const res = await worker.fetch(
+      makeRequest('/api/applications/00000000-0000-0000-0000-000000000000', { method: 'DELETE' }),
+      makeEnv(db),
+    )
+    expect(res.status).toBe(404)
+  })
+})
+
 describe('unknown routes', () => {
   it('returns 404', async () => {
     const res = await worker.fetch(

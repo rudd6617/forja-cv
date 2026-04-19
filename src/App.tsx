@@ -10,6 +10,7 @@ import { ResumePreview } from './components/ResumePreview'
 import { EditorPanel } from './components/EditorPanel'
 import { JDPanel } from './components/JDPanel'
 import { ResumeList } from './components/ResumeList'
+import { ApplicationsList } from './components/ApplicationsList'
 import { Toolbar } from './components/Toolbar'
 import * as api from './services/resumeApi'
 import { ConflictError } from './services/resumeApi'
@@ -36,9 +37,10 @@ export default function App() {
   return <AppContent />
 }
 
-type Tab = 'edit' | 'jd' | 'resumes'
+type Tab = 'edit' | 'jd' | 'resumes' | 'applications'
 
 const SYNC_DEBOUNCE_MS = 2000
+const MAX_RESUME_TITLE_LENGTH = 200
 
 function AppContent() {
   const { user, idToken } = useAuth()
@@ -187,6 +189,29 @@ function AppContent() {
     setResumeListKey((k) => k + 1)
   }, [currentResumeId, loadData])
 
+  const handleLoadApplicationSnapshot = useCallback(async (
+    snapshot: ResumeData,
+    meta: { company: string; position: string },
+  ) => {
+    if (!idToken) return
+    const title = `${snapshot.title || 'Resume'} — ${meta.company}`.slice(0, MAX_RESUME_TITLE_LENGTH)
+    const snapshotWithTitle = { ...snapshot, title }
+    try {
+      const { id } = await api.createResume(
+        idToken,
+        title,
+        JSON.stringify(snapshotWithTitle),
+      )
+      updatedAtRef.current = null
+      loadData(snapshotWithTitle)
+      setCurrentResumeId(id)
+      setResumeListKey((k) => k + 1)
+      setActiveTab('edit')
+    } catch {
+      setSyncStatus('error')
+    }
+  }, [idToken, loadData])
+
   const handleApplySuggestion = useCallback(
     (suggestion: Suggestion) => {
       if (suggestion.section === 'summary') {
@@ -200,15 +225,26 @@ function AppContent() {
     [updateSummary, updateSectionItem],
   )
 
+  const handleRevertSuggestion = useCallback(
+    (suggestion: Suggestion) => {
+      if (suggestion.section === 'summary') {
+        updateSummary('paragraph', wrapHtml(suggestion.original))
+      } else if (suggestion.section === 'experience' && suggestion.index != null) {
+        updateSectionItem('experience', suggestion.index, {
+          paragraph: wrapHtml(suggestion.original),
+        })
+      }
+    },
+    [updateSummary, updateSectionItem],
+  )
+
   const handleExportPDF = useCallback(async () => {
     const [{ pdf }, { PdfDocument }] = await Promise.all([
       import('@react-pdf/renderer'),
       import('./components/pdf/PdfDocument'),
     ])
-    // pdf() expects ReactElement<DocumentProps>, but DocumentProps is not exported from @react-pdf/renderer
-    const blob = await pdf(
-      createElement(PdfDocument, { data, fontFamily, colorTheme, layout }) as React.ReactElement<any>,
-    ).toBlob()
+    const element = createElement(PdfDocument, { data, fontFamily, colorTheme, layout })
+    const blob = await pdf(element as Parameters<typeof pdf>[0]).toBlob()
     downloadBlob(blob, `${data.title || 'resume'}.pdf`)
   }, [data, fontFamily, colorTheme, layout])
 
@@ -268,6 +304,18 @@ function AppContent() {
             >
               JD Analysis
             </button>
+            {showResumesTab && (
+              <button
+                onClick={() => setActiveTab('applications')}
+                className={`flex-1 py-3 text-sm font-medium cursor-pointer ${
+                  activeTab === 'applications'
+                    ? 'text-gray-900 border-b-2 border-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Applications
+              </button>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto">
@@ -279,6 +327,8 @@ function AppContent() {
                 onNew={handleNewResume}
                 onDelete={handleDeleteResume}
               />
+            ) : activeTab === 'applications' && showResumesTab ? (
+              <ApplicationsList onLoadSnapshot={handleLoadApplicationSnapshot} />
             ) : activeTab === 'edit' ? (
               <EditorPanel
                 data={data}
@@ -291,7 +341,12 @@ function AppContent() {
                 toggleSectionVisibility={toggleSectionVisibility}
               />
             ) : (
-              <JDPanel data={data} onApplySuggestion={handleApplySuggestion} />
+              <JDPanel
+                data={data}
+                resumeId={currentResumeId}
+                onApplySuggestion={handleApplySuggestion}
+                onRevertSuggestion={handleRevertSuggestion}
+              />
             )}
           </div>
         </div>

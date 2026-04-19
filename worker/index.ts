@@ -223,6 +223,245 @@ async function handleResumes(request: Request, env: Env): Promise<Response> {
   return Response.json({ error: 'Not found' }, { status: 404 })
 }
 
+// ─── Applications CRUD ───
+
+const MAX_APPLICATION_FIELD_LENGTH = 500
+const MAX_NOTES_LENGTH = 5_000
+const MAX_ANALYSIS_LENGTH = 100_000
+const MAX_SNAPSHOT_LENGTH = 1_000_000
+const MAX_APPLICATIONS_PER_USER = 500
+const APPLICATION_STATUSES = [
+  'draft', 'applied', 'interview', 'offer', 'rejected', 'withdrawn',
+] as const
+type AppStatus = typeof APPLICATION_STATUSES[number]
+function isStatus(v: unknown): v is AppStatus {
+  return typeof v === 'string' && (APPLICATION_STATUSES as readonly string[]).includes(v)
+}
+
+async function handleListApplications(user: GoogleUser, env: Env, url: URL): Promise<Response> {
+  const status = url.searchParams.get('status')
+  if (status !== null && !isStatus(status)) {
+    return Response.json({ error: 'Invalid status filter' }, { status: 400 })
+  }
+  const query = status
+    ? 'SELECT id, resume_id, company, position, status, score, updated_at FROM applications WHERE google_id = ? AND status = ? ORDER BY updated_at DESC'
+    : 'SELECT id, resume_id, company, position, status, score, updated_at FROM applications WHERE google_id = ? ORDER BY updated_at DESC'
+  const binds = status ? [user.googleId, status] : [user.googleId]
+  const { results } = await env.DB.prepare(query).bind(...binds).all()
+  return Response.json(results)
+}
+
+interface CreateAppBody {
+  resume_id: string
+  company: string
+  position: string
+  jd?: string | null
+  jd_url?: string | null
+  status?: AppStatus
+  score?: number | null
+  analysis?: unknown
+  notes?: string | null
+  applied_at?: string | null
+  resume_snapshot?: string | null
+}
+
+function validateStringField(v: unknown, max: number): v is string {
+  return typeof v === 'string' && v.length > 0 && v.length <= max
+}
+
+async function handleCreateApplication(request: Request, user: GoogleUser, env: Env): Promise<Response> {
+  let body: CreateAppBody
+  try {
+    body = (await request.json()) as CreateAppBody
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+  if (!validateStringField(body.resume_id, 100)) {
+    return Response.json({ error: 'resume_id is required' }, { status: 400 })
+  }
+  if (!validateStringField(body.company, MAX_APPLICATION_FIELD_LENGTH)) {
+    return Response.json({ error: 'company is required' }, { status: 400 })
+  }
+  if (!validateStringField(body.position, MAX_APPLICATION_FIELD_LENGTH)) {
+    return Response.json({ error: 'position is required' }, { status: 400 })
+  }
+  if (body.status !== undefined && !isStatus(body.status)) {
+    return Response.json({ error: 'Invalid status' }, { status: 400 })
+  }
+  if (body.notes !== undefined && body.notes !== null && (typeof body.notes !== 'string' || body.notes.length > MAX_NOTES_LENGTH)) {
+    return Response.json({ error: 'Invalid notes' }, { status: 400 })
+  }
+
+  const analysisJson = body.analysis ? JSON.stringify(body.analysis) : null
+  if (analysisJson && analysisJson.length > MAX_ANALYSIS_LENGTH) {
+    return Response.json({ error: 'Analysis too large' }, { status: 400 })
+  }
+
+  if (body.resume_snapshot !== undefined && body.resume_snapshot !== null) {
+    if (typeof body.resume_snapshot !== 'string') {
+      return Response.json({ error: 'resume_snapshot must be a string' }, { status: 400 })
+    }
+    if (body.resume_snapshot.length > MAX_SNAPSHOT_LENGTH) {
+      return Response.json({ error: 'resume_snapshot too large' }, { status: 400 })
+    }
+  }
+
+  const resumeOwned = await env.DB
+    .prepare('SELECT id FROM resumes WHERE id = ? AND google_id = ?')
+    .bind(body.resume_id, user.googleId)
+    .first()
+  if (!resumeOwned) {
+    return Response.json({ error: 'Resume not found' }, { status: 400 })
+  }
+
+  const count = await env.DB
+    .prepare('SELECT COUNT(*) as c FROM applications WHERE google_id = ?')
+    .bind(user.googleId)
+    .first<{ c: number }>()
+  if (count && count.c >= MAX_APPLICATIONS_PER_USER) {
+    return Response.json({ error: `Maximum ${MAX_APPLICATIONS_PER_USER} applications reached` }, { status: 400 })
+  }
+
+  const id = crypto.randomUUID()
+  await env.DB
+    .prepare(`INSERT INTO applications
+      (id, google_id, resume_id, company, position, jd, jd_url, status, score, analysis, notes, applied_at, resume_snapshot)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .bind(
+      id,
+      user.googleId,
+      body.resume_id,
+      body.company,
+      body.position,
+      body.jd ?? null,
+      body.jd_url ?? null,
+      body.status ?? 'draft',
+      body.score ?? null,
+      analysisJson,
+      body.notes ?? null,
+      body.applied_at ?? null,
+      body.resume_snapshot ?? null,
+    )
+    .run()
+  return Response.json({ id }, { status: 201 })
+}
+
+async function handleGetApplication(id: string, user: GoogleUser, env: Env): Promise<Response> {
+  const row = await env.DB
+    .prepare(`SELECT id, resume_id, company, position, jd, jd_url, status, score,
+      analysis, notes, applied_at, created_at, updated_at, resume_snapshot
+      FROM applications WHERE id = ? AND google_id = ?`)
+    .bind(id, user.googleId)
+    .first<Record<string, unknown>>()
+  if (!row) {
+    return Response.json({ error: 'Not found' }, { status: 404 })
+  }
+  const analysis = row.analysis ? JSON.parse(row.analysis as string) : null
+  return Response.json({ ...row, analysis })
+}
+
+interface UpdateAppBody {
+  company?: string
+  position?: string
+  jd?: string | null
+  jd_url?: string | null
+  status?: AppStatus
+  score?: number | null
+  notes?: string | null
+  applied_at?: string | null
+}
+
+async function handleUpdateApplication(id: string, request: Request, user: GoogleUser, env: Env): Promise<Response> {
+  let body: UpdateAppBody
+  try {
+    body = (await request.json()) as UpdateAppBody
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+  const sets: string[] = []
+  const binds: (string | number | null)[] = []
+
+  if (body.company !== undefined) {
+    if (!validateStringField(body.company, MAX_APPLICATION_FIELD_LENGTH)) {
+      return Response.json({ error: 'Invalid company' }, { status: 400 })
+    }
+    sets.push('company = ?'); binds.push(body.company)
+  }
+  if (body.position !== undefined) {
+    if (!validateStringField(body.position, MAX_APPLICATION_FIELD_LENGTH)) {
+      return Response.json({ error: 'Invalid position' }, { status: 400 })
+    }
+    sets.push('position = ?'); binds.push(body.position)
+  }
+  if (body.status !== undefined) {
+    if (!isStatus(body.status)) {
+      return Response.json({ error: 'Invalid status' }, { status: 400 })
+    }
+    sets.push('status = ?'); binds.push(body.status)
+  }
+  if (body.jd !== undefined) { sets.push('jd = ?'); binds.push(body.jd) }
+  if (body.jd_url !== undefined) { sets.push('jd_url = ?'); binds.push(body.jd_url) }
+  if (body.score !== undefined) { sets.push('score = ?'); binds.push(body.score) }
+  if (body.notes !== undefined) {
+    if (body.notes !== null && (typeof body.notes !== 'string' || body.notes.length > MAX_NOTES_LENGTH)) {
+      return Response.json({ error: 'Invalid notes' }, { status: 400 })
+    }
+    sets.push('notes = ?'); binds.push(body.notes)
+  }
+  if (body.applied_at !== undefined) { sets.push('applied_at = ?'); binds.push(body.applied_at) }
+
+  if (sets.length === 0) {
+    return Response.json({ error: 'No fields to update' }, { status: 400 })
+  }
+  sets.push("updated_at = datetime('now')")
+
+  const result = await env.DB
+    .prepare(`UPDATE applications SET ${sets.join(', ')} WHERE id = ? AND google_id = ?`)
+    .bind(...binds, id, user.googleId)
+    .run()
+  if (!result.meta.changes) {
+    return Response.json({ error: 'Not found' }, { status: 404 })
+  }
+  return Response.json({ ok: true })
+}
+
+async function handleDeleteApplication(id: string, user: GoogleUser, env: Env): Promise<Response> {
+  const result = await env.DB
+    .prepare('DELETE FROM applications WHERE id = ? AND google_id = ?')
+    .bind(id, user.googleId)
+    .run()
+  if (!result.meta.changes) {
+    return Response.json({ error: 'Not found' }, { status: 404 })
+  }
+  return Response.json({ ok: true })
+}
+
+async function handleApplications(request: Request, env: Env): Promise<Response> {
+  const result = await authenticate(request, env)
+  if (result instanceof Response) return result
+  const user = result
+  await ensureUser(env.DB, user)
+
+  const url = new URL(request.url)
+  const idMatch = url.pathname.match(/^\/api\/applications\/([a-f0-9-]+)$/)
+
+  if (idMatch) {
+    const id = idMatch[1]
+    if (request.method === 'GET') return handleGetApplication(id, user, env)
+    if (request.method === 'PATCH') return handleUpdateApplication(id, request, user, env)
+    if (request.method === 'DELETE') return handleDeleteApplication(id, user, env)
+    return Response.json({ error: 'Method not allowed' }, { status: 405 })
+  }
+
+  if (url.pathname === '/api/applications') {
+    if (request.method === 'GET') return handleListApplications(user, env, url)
+    if (request.method === 'POST') return handleCreateApplication(request, user, env)
+    return Response.json({ error: 'Method not allowed' }, { status: 405 })
+  }
+
+  return Response.json({ error: 'Not found' }, { status: 404 })
+}
+
 // ─── JD Analysis (existing) ───
 
 const MAX_JD_LENGTH = 10_000
@@ -324,8 +563,10 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
     return Response.json({ error: 'Method not allowed' }, { status: 405 })
   }
 
+  console.log('[analyze] 1/7 received POST')
   const authResult = await authenticate(request, env)
   if (authResult instanceof Response) return authResult
+  console.log('[analyze] 2/7 authenticated user=', authResult.googleId)
 
   if (!(await checkRateLimit(authResult.googleId, env.DB))) {
     return Response.json(
@@ -386,6 +627,8 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
     )
     .join('\n\n')}`
 
+  console.log('[analyze] 3/7 calling LLM', LLM_API_URL, 'model=', LLM_MODEL, 'jd.len=', body.jd.length, 'resume.len=', resumeJson.length)
+  const startedAt = Date.now()
   const response = await fetch(`${LLM_API_URL}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -397,9 +640,12 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
         { role: 'user', content: userMessage },
       ],
       temperature: 0.3,
-      max_tokens: 4096,
+      max_tokens: 8192,
+      response_format: { type: 'json_object' },
     }),
   })
+
+  console.log('[analyze] 4/7 LLM responded status=', response.status, 'in', Date.now() - startedAt, 'ms')
 
   if (!response.ok) {
     return Response.json(
@@ -410,11 +656,16 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
 
   const result = await response.json() as {
     choices: { message: { content: string } }[]
+    usage?: { completion_tokens?: number }
   }
   const rawContent = result.choices[0]?.message?.content ?? ''
+  console.log('[analyze] 5/7 extracted content, len=', rawContent.length,
+    'completion_tokens=', result.usage?.completion_tokens,
+    'preview=', rawContent.slice(0, 120))
 
   try {
     const parsed = JSON.parse(extractJson(rawContent))
+    console.log('[analyze] 6/7 parsed JSON, keys=', Object.keys(parsed).join(','))
 
     if (Array.isArray(parsed.suggestions)) {
       parsed.suggestions = parsed.suggestions.map(
@@ -427,10 +678,16 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
       )
     }
 
+    console.log('[analyze] 7/7 returning parsed result')
     return Response.json(parsed)
-  } catch {
+  } catch (err) {
+    console.error('[analyze] parse failure:', err)
+    console.error('[analyze] full raw content:', rawContent)
     return Response.json(
-      { error: 'Failed to parse analysis response' },
+      {
+        error: 'Failed to parse analysis response',
+        preview: rawContent.slice(0, 500),
+      },
       { status: 502 },
     )
   }
@@ -448,6 +705,10 @@ export default {
 
     if (url.pathname.startsWith('/api/resumes')) {
       return handleResumes(request, env)
+    }
+
+    if (url.pathname.startsWith('/api/applications')) {
+      return handleApplications(request, env)
     }
 
     return new Response(null, { status: 404 })
