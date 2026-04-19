@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import * as api from '../services/applicationApi'
+import { getResume } from '../services/resumeApi'
 import type { ApplicationStatus, ApplicationSummary } from '../types/application'
 import { APPLICATION_STATUSES } from '../types/application'
 import type { ResumeData } from '../types/resume'
@@ -139,11 +140,8 @@ export function ApplicationsList({ onLoadSnapshot }: ApplicationsListProps) {
     setError(null)
     try {
       const app = await api.getApplication(idToken, id)
-      if (!app.resume_snapshot) {
-        setError('This application has no saved resume snapshot')
-        return
-      }
-      const parsed = JSON.parse(app.resume_snapshot) as ResumeData
+      const raw = app.resume_snapshot ?? (await getResume(idToken, app.resume_id)).data
+      const parsed = JSON.parse(raw) as ResumeData
       onLoadSnapshot(parsed, { company, position })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load snapshot')
