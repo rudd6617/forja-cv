@@ -311,13 +311,34 @@ const SOCIAL_FIELDS: FieldDef[] = [
   { key: 'icon', label: 'Icon (linkedin / github)' },
 ]
 
+const PROJECT_FIELDS: FieldDef[] = [
+  { key: 'title', label: 'Project' },
+  { key: 'subtitle1', label: 'Role / Organization' },
+  { key: 'subtitle2', label: 'Period' },
+  { key: 'paragraph', label: 'Description', rich: true },
+]
+
+const SKILL_FIELDS: FieldDef[] = [
+  { key: 'title', label: 'Category' },
+  { key: 'paragraph', label: 'Details', rich: true },
+]
+
+const CERTIFICATE_FIELDS: FieldDef[] = [
+  { key: 'title', label: 'Name' },
+  { key: 'subtitle', label: 'Issuer' },
+  { key: 'subtitle2', label: 'Date' },
+]
+
 const LIST_SECTIONS: {
   key: SectionKey
   title: string
   fields: FieldDef[]
 }[] = [
   { key: 'experience', title: 'Experience', fields: EXPERIENCE_FIELDS },
+  { key: 'project', title: 'Projects', fields: PROJECT_FIELDS },
+  { key: 'skill', title: 'Skills', fields: SKILL_FIELDS },
   { key: 'education', title: 'Education', fields: EDUCATION_FIELDS },
+  { key: 'certificate', title: 'Certificates', fields: CERTIFICATE_FIELDS },
   { key: 'contact', title: 'Contact', fields: CONTACT_FIELDS },
   { key: 'social', title: 'Social Media', fields: SOCIAL_FIELDS },
 ]
