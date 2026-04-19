@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import * as api from '../services/applicationApi'
 import type { ApplicationStatus, ApplicationSummary } from '../types/application'
@@ -9,6 +9,9 @@ interface ApplicationsListProps {
   onLoadSnapshot: (data: ResumeData, meta: { company: string; position: string }) => void
 }
 
+type SortField = 'company' | 'position' | 'status' | 'score' | 'updated_at'
+type SortDir = 'asc' | 'desc'
+
 const statusColors: Record<ApplicationStatus, string> = {
   draft: 'bg-gray-100 text-gray-700',
   applied: 'bg-blue-100 text-blue-700',
@@ -18,11 +21,41 @@ const statusColors: Record<ApplicationStatus, string> = {
   withdrawn: 'bg-gray-100 text-gray-500',
 }
 
+const statusOrder = Object.fromEntries(
+  APPLICATION_STATUSES.map((s, i) => [s, i]),
+) as Record<ApplicationStatus, number>
+
+const SORTABLE_COLUMNS: { field: SortField; label: string; defaultDir: SortDir }[] = [
+  { field: 'company', label: 'Company', defaultDir: 'asc' },
+  { field: 'position', label: 'Position', defaultDir: 'asc' },
+  { field: 'status', label: 'Status', defaultDir: 'asc' },
+  { field: 'score', label: 'Score', defaultDir: 'desc' },
+  { field: 'updated_at', label: 'Updated', defaultDir: 'desc' },
+]
+
 function scoreClass(score: number | null): string {
   if (score == null) return 'text-gray-400'
   if (score >= 70) return 'text-green-700'
   if (score >= 40) return 'text-yellow-700'
   return 'text-red-700'
+}
+
+function compareValues(
+  a: ApplicationSummary,
+  b: ApplicationSummary,
+  field: SortField,
+): number {
+  switch (field) {
+    case 'company': return a.company.localeCompare(b.company)
+    case 'position': return a.position.localeCompare(b.position)
+    case 'status': return statusOrder[a.status] - statusOrder[b.status]
+    case 'score': {
+      const sa = a.score ?? -1
+      const sb = b.score ?? -1
+      return sa - sb
+    }
+    case 'updated_at': return a.updated_at.localeCompare(b.updated_at)
+  }
 }
 
 export function ApplicationsList({ onLoadSnapshot }: ApplicationsListProps) {
@@ -31,6 +64,34 @@ export function ApplicationsList({ onLoadSnapshot }: ApplicationsListProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<ApplicationStatus | 'all'>('all')
+  const [search, setSearch] = useState('')
+  const [sortField, setSortField] = useState<SortField>('updated_at')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  const displayItems = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const filtered = q
+      ? items.filter(
+          (a) =>
+            a.company.toLowerCase().includes(q) ||
+            a.position.toLowerCase().includes(q),
+        )
+      : items
+    const dir = sortDir === 'desc' ? -1 : 1
+    return [...filtered].sort((a, b) => compareValues(a, b, sortField) * dir)
+  }, [items, search, sortField, sortDir])
+
+  const toggleSort = (field: SortField) => {
+    if (field === sortField) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDir(SORTABLE_COLUMNS.find((c) => c.field === field)!.defaultDir)
+    }
+  }
+
+  const sortArrow = (field: SortField) =>
+    field === sortField ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
 
   const refresh = useCallback(async () => {
     if (!idToken) return
@@ -91,7 +152,7 @@ export function ApplicationsList({ onLoadSnapshot }: ApplicationsListProps) {
 
   return (
     <div className="p-4 space-y-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <label className="text-xs text-gray-500">Filter</label>
         <select
           value={filter}
@@ -103,6 +164,14 @@ export function ApplicationsList({ onLoadSnapshot }: ApplicationsListProps) {
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search company or position"
+          className="text-xs px-2 py-1 border border-gray-300 rounded flex-1 min-w-[160px]"
+          aria-label="Search applications"
+        />
       </div>
 
       {error && (
@@ -121,21 +190,31 @@ export function ApplicationsList({ onLoadSnapshot }: ApplicationsListProps) {
         <p className="text-sm text-gray-400 text-center py-8">
           No applications yet. Analyze a JD and click "Save as Application" to track it here.
         </p>
+      ) : displayItems.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-8">
+          No applications match your search.
+        </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-left text-xs text-gray-500">
-                <th className="py-2 pr-3 font-medium">Company</th>
-                <th className="py-2 pr-3 font-medium">Position</th>
-                <th className="py-2 pr-3 font-medium">Status</th>
-                <th className="py-2 pr-3 font-medium">Score</th>
-                <th className="py-2 pr-3 font-medium">Updated</th>
+                {SORTABLE_COLUMNS.map((col) => (
+                  <th key={col.field} className="py-2 pr-3 font-medium">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(col.field)}
+                      className="cursor-pointer hover:text-gray-900"
+                    >
+                      {col.label}{sortArrow(col.field)}
+                    </button>
+                  </th>
+                ))}
                 <th className="py-2 font-medium"></th>
               </tr>
             </thead>
             <tbody>
-              {items.map((a) => (
+              {displayItems.map((a) => (
                 <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="py-2 pr-3 font-medium text-gray-900">{a.company}</td>
                   <td className="py-2 pr-3 text-gray-700">{a.position}</td>
