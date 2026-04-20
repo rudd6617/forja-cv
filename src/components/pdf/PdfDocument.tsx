@@ -40,9 +40,21 @@ Font.register({
   ],
 })
 
-Font.registerHyphenationCallback((word) =>
-  /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(word) ? Array.from(word) : [word],
-)
+// For CJK text the whole sentence is one "word" (no spaces), so the linebreaker
+// would never split it. Insert a zero-width no-break space (U+FEFF) between CJK
+// codepoints: textkit sees it as trimmable whitespace → glue node (break point,
+// no hyphen inserted), and the glyph itself renders with 0 width.
+const CJK_RE = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff\uff00-\uffef]/
+Font.registerHyphenationCallback((word) => {
+  if (!CJK_RE.test(word)) return [word]
+  const chars = Array.from(word)
+  const out: string[] = []
+  for (let i = 0; i < chars.length; i++) {
+    out.push(chars[i])
+    if (i < chars.length - 1) out.push('\uFEFF')
+  }
+  return out
+})
 
 const FONT_MAP: Record<FontValue, string> = {
   'gill-sans': 'Noto Sans TC',
@@ -218,7 +230,7 @@ function CertificateSection({ section, ctx }: { section: ResumeData['user']['cer
 function Header({ about, ctx, children }: { about: ResumeData['user']['about']; ctx: PdfCtx; children?: React.ReactNode }) {
   if (!about.isShow) return null
   return (
-    <View style={{ paddingHorizontal: 36, paddingTop: 28, paddingBottom: 6 }}>
+    <View style={{ paddingBottom: 6 }}>
       <Text style={{ fontFamily: ctx.font, fontSize: 24, fontWeight: 'bold', color: ctx.colors.heading, letterSpacing: -0.5 }}>
         {stripHtml(about.name)}
       </Text>
@@ -233,7 +245,7 @@ function Header({ about, ctx, children }: { about: ResumeData['user']['about']; 
 function Summary({ summary, ctx }: { summary: ResumeData['user']['summary']; ctx: PdfCtx }) {
   if (!summary.isShow) return null
   return (
-    <View style={{ paddingHorizontal: 36, paddingBottom: 8 }}>
+    <View style={{ paddingBottom: 8 }}>
       {summary.hashtags.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
           {summary.hashtags.map((tag) => (
@@ -251,7 +263,7 @@ function Summary({ summary, ctx }: { summary: ResumeData['user']['summary']; ctx
 }
 
 function Divider({ ctx }: { ctx: PdfCtx }) {
-  return <View style={{ marginHorizontal: 36, marginBottom: 12, borderTopWidth: 1, borderTopColor: ctx.colors.border }} />
+  return <View style={{ marginBottom: 12, borderTopWidth: 1, borderTopColor: ctx.colors.border }} />
 }
 
 function Sidebar({ contact, social, education, skill, certificate, ctx }: {
@@ -296,7 +308,7 @@ function LayoutSidebar({ data, ctx, side }: { data: ResumeData; ctx: PdfCtx; sid
       <Header about={about} ctx={ctx} />
       <Summary summary={summary} ctx={ctx} />
       <Divider ctx={ctx} />
-      <View style={{ flexDirection: 'row', paddingHorizontal: 36, paddingBottom: 28, gap: 24 }}>
+      <View style={{ flexDirection: 'row', gap: 24 }}>
         {side === 'left' ? <>{sidebarView}{mainView}</> : <>{mainView}{sidebarView}</>}
       </View>
     </>
@@ -352,7 +364,7 @@ function LayoutTopHeader({ data, ctx }: { data: ResumeData; ctx: PdfCtx }) {
         <InlineContact contact={contact} social={social} ctx={ctx} />
       </Header>
       <Summary summary={summary} ctx={ctx} />
-      <View style={{ paddingHorizontal: 36, paddingBottom: 28 }}>
+      <View>
         <ExperienceSection section={experience} ctx={ctx} />
         <ProjectSection section={project} ctx={ctx} />
         <InlineEducation section={education} ctx={ctx} />
@@ -369,7 +381,7 @@ function LayoutSingleColumn({ data, ctx }: { data: ResumeData; ctx: PdfCtx }) {
     <>
       <Header about={about} ctx={ctx} />
       <Summary summary={summary} ctx={ctx} />
-      <View style={{ paddingHorizontal: 36, paddingBottom: 28 }}>
+      <View>
         <ExperienceSection section={experience} ctx={ctx} />
         <ProjectSection section={project} ctx={ctx} />
         <InlineEducation section={education} ctx={ctx} />
@@ -421,7 +433,7 @@ export function PdfDocument({ data, fontFamily, colorTheme, layout }: PdfDocumen
 
   return (
     <Document title={data.title || 'Resume'}>
-      <Page size="A4" style={{ fontFamily: fontName, color: theme.text, fontSize: 10 }}>
+      <Page size="A4" style={{ fontFamily: fontName, color: theme.text, fontSize: 10, paddingTop: 28, paddingBottom: 28, paddingHorizontal: 36 }}>
         <LayoutComponent data={data} ctx={ctx} />
       </Page>
     </Document>
