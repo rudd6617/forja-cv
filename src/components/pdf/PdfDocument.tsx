@@ -40,7 +40,9 @@ Font.register({
   ],
 })
 
-Font.registerHyphenationCallback((word) => [word])
+Font.registerHyphenationCallback((word) =>
+  /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(word) ? Array.from(word) : [word],
+)
 
 const FONT_MAP: Record<FontValue, string> = {
   'gill-sans': 'Noto Sans TC',
@@ -143,12 +145,14 @@ function EducationSection({ section, ctx }: { section: ResumeData['user']['educa
 function ExperienceEntry({ item, ctx }: { item: ResumeItem; ctx: PdfCtx }) {
   if (!item.isShow) return null
   return (
-    <View style={{ marginBottom: 12 }} wrap={false}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
-        <HtmlField html={item.title} style={{ fontSize: 12, color: ctx.colors.heading, fontWeight: 'bold' }} ctx={ctx} />
-        <HtmlField html={item.subtitle2} style={{ fontSize: 9, color: ctx.colors.muted, flexShrink: 0 }} ctx={ctx} />
+    <View style={{ marginBottom: 12 }}>
+      <View wrap={false} minPresenceAhead={40}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
+          <HtmlField html={item.title} style={{ fontSize: 12, color: ctx.colors.heading, fontWeight: 'bold' }} ctx={ctx} />
+          <HtmlField html={item.subtitle2} style={{ fontSize: 9, color: ctx.colors.muted, flexShrink: 0 }} ctx={ctx} />
+        </View>
+        <HtmlField html={item.subtitle1} style={{ fontSize: 10, color: ctx.colors.accent }} ctx={ctx} />
       </View>
-      <HtmlField html={item.subtitle1} style={{ fontSize: 10, color: ctx.colors.accent }} ctx={ctx} />
       <View style={{ marginTop: 4 }}>
         <HtmlField html={item.paragraph} style={{ fontSize: 10, color: ctx.colors.text, lineHeight: 1.6 }} ctx={ctx} />
       </View>
