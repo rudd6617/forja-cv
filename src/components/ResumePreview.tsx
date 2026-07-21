@@ -22,7 +22,7 @@ function safeHref(url: string | undefined): string {
 function SectionTitle({ children }: { children: string }) {
   return (
     <h3
-      className="cv-accent text-[12px] font-bold tracking-[0.15em] uppercase pb-1.5 mb-3"
+      className="cv-accent text-[10px] font-bold tracking-[0.15em] uppercase pb-1.5 mb-3"
       style={{ borderBottom: '2px solid var(--cv-accent)' }}
     >
       {children}
@@ -257,7 +257,7 @@ function Summary({ summary }: { summary: ResumeData['user']['summary'] }) {
             <HtmlContent
               key={tag}
               html={tag}
-              className="cv-accent cv-accent-bg text-[12px] font-medium px-2 py-0.5 rounded [&>p]:m-0"
+              className="cv-accent cv-accent-bg text-[11px] font-medium px-2 py-0.5 rounded [&>p]:m-0"
             />
           ))}
         </div>
