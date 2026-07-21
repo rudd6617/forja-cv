@@ -290,15 +290,15 @@ function Sidebar({ contact, social, education, skill, certificate, ctx }: {
 function LayoutSidebar({ data, ctx, side }: { data: ResumeData; ctx: PdfCtx; side: 'left' | 'right' }) {
   const { about, summary, experience, project, education, contact, social, skill, certificate } = data.user
   const sidebarBorder = side === 'left'
-    ? { paddingRight: 16, borderRightWidth: 1, borderRightColor: ctx.colors.border }
-    : { paddingLeft: 16, borderLeftWidth: 1, borderLeftColor: ctx.colors.border }
+    ? { paddingRight: 12, borderRightWidth: 1, borderRightColor: ctx.colors.border }
+    : { paddingLeft: 12, borderLeftWidth: 1, borderLeftColor: ctx.colors.border }
   const sidebarView = (
-    <View style={{ width: '22%', flexShrink: 0, ...sidebarBorder }}>
+    <View style={{ width: '18%', flexShrink: 0, ...sidebarBorder }}>
       <Sidebar contact={contact} social={social} education={education} skill={skill} certificate={certificate} ctx={ctx} />
     </View>
   )
   const mainView = (
-    <View style={{ width: '78%' }}>
+    <View style={{ width: '82%' }}>
       <ExperienceSection section={experience} ctx={ctx} />
       <ProjectSection section={project} ctx={ctx} />
     </View>
@@ -308,7 +308,7 @@ function LayoutSidebar({ data, ctx, side }: { data: ResumeData; ctx: PdfCtx; sid
       <Header about={about} ctx={ctx} />
       <Summary summary={summary} ctx={ctx} />
       <Divider ctx={ctx} />
-      <View style={{ flexDirection: 'row', gap: 24 }}>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
         {side === 'left' ? <>{sidebarView}{mainView}</> : <>{mainView}{sidebarView}</>}
       </View>
     </>
