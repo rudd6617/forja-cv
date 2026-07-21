@@ -109,7 +109,7 @@ function renderListItem(
         marginBottom: 1,
       }}
     >
-      <Text style={{ ...baseStyle, width: listType === 'disc' ? 8 : 14, flexShrink: 0 }}>
+      <Text style={{ ...baseStyle, width: listType === 'disc' ? 12 : 18, flexShrink: 0 }}>
         {bullet}
       </Text>
       <Text style={{ ...baseStyle, flex: 1 }} hyphenationPenalty={NO_HYPHEN}>
