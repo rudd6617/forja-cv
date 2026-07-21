@@ -29,6 +29,11 @@ export function htmlToPdfNodes(
   return <View>{elements}</View>
 }
 
+// 10000 === textkit linebreak.infinity: penalty (hyphenation) breakpoints are
+// skipped entirely, so lines break at the U+FEFF glue nodes between CJK chars
+// (see PdfDocument's hyphenation callback) and no "-" is ever inserted.
+const NO_HYPHEN = 10000
+
 function renderNode(
   node: Node,
   key: number,
@@ -36,7 +41,7 @@ function renderNode(
   ctx: ParseContext,
 ): ReactElement {
   if (node.nodeType === Node.TEXT_NODE) {
-    return <Text key={key} style={baseStyle}>{node.textContent ?? ''}</Text>
+    return <Text key={key} style={baseStyle} hyphenationPenalty={NO_HYPHEN}>{node.textContent ?? ''}</Text>
   }
 
   if (node.nodeType !== Node.ELEMENT_NODE) {
@@ -49,7 +54,7 @@ function renderNode(
   switch (tag) {
     case 'p':
       return (
-        <Text key={key} style={{ ...baseStyle, marginBottom: 1 }}>
+        <Text key={key} style={{ ...baseStyle, marginBottom: 1 }} hyphenationPenalty={NO_HYPHEN}>
           {renderInlineChildren(el, baseStyle, ctx)}
         </Text>
       )
@@ -78,7 +83,7 @@ function renderNode(
     default:
       // Fallback: treat as inline text
       return (
-        <Text key={key} style={baseStyle}>
+        <Text key={key} style={baseStyle} hyphenationPenalty={NO_HYPHEN}>
           {renderInlineChildren(el, baseStyle, ctx)}
         </Text>
       )
@@ -107,7 +112,7 @@ function renderListItem(
       <Text style={{ ...baseStyle, width: listType === 'disc' ? 8 : 14, flexShrink: 0 }}>
         {bullet}
       </Text>
-      <Text style={{ ...baseStyle, flex: 1 }}>
+      <Text style={{ ...baseStyle, flex: 1 }} hyphenationPenalty={NO_HYPHEN}>
         {renderInlineChildren(li, baseStyle, ctx)}
       </Text>
     </View>
