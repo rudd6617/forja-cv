@@ -1,6 +1,7 @@
 import { Text, View, Link } from '@react-pdf/renderer'
 import type { Style } from '@react-pdf/types'
 import type { ReactElement } from 'react'
+import { normalizeQuillLists } from '../../utils/html'
 
 interface ParseContext {
   accentColor: string
@@ -18,7 +19,7 @@ export function htmlToPdfNodes(
     return <Text style={baseStyle}> </Text>
   }
 
-  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const doc = new DOMParser().parseFromString(normalizeQuillLists(html), 'text/html')
   const nodes = Array.from(doc.body.childNodes)
 
   if (nodes.length === 0) {

@@ -1,5 +1,6 @@
 import { type CSSProperties, memo, useMemo } from 'react'
 import DOMPurify from 'dompurify'
+import { normalizeQuillLists } from '../utils/html'
 
 export const HtmlContent = memo(function HtmlContent({
   html,
@@ -10,7 +11,7 @@ export const HtmlContent = memo(function HtmlContent({
   className?: string
   style?: CSSProperties
 }) {
-  const sanitized = useMemo(() => DOMPurify.sanitize(html), [html])
+  const sanitized = useMemo(() => DOMPurify.sanitize(normalizeQuillLists(html)), [html])
 
   return (
     <div
