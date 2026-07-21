@@ -44,15 +44,23 @@ Font.register({
 // would never split it. Insert a zero-width no-break space (U+FEFF) between CJK
 // codepoints: textkit sees it as trimmable whitespace → glue node (break point,
 // no hyphen inserted), and the glyph itself renders with 0 width.
+// Only insert between two CJK chars - a Latin/digit run stays glued to its
+// neighboring CJK chars so tokens like "10年" never wrap in the middle.
 const CJK_RE = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff\uff00-\uffef]/
 Font.registerHyphenationCallback((word) => {
   if (!CJK_RE.test(word)) return [word]
   const chars = Array.from(word)
   const out: string[] = []
+  let chunk = ''
   for (let i = 0; i < chars.length; i++) {
-    out.push(chars[i])
-    if (i < chars.length - 1) out.push('\uFEFF')
+    chunk += chars[i]
+    const next = chars[i + 1]
+    if (next && CJK_RE.test(chars[i]) && CJK_RE.test(next)) {
+      out.push(chunk, '\uFEFF')
+      chunk = ''
+    }
   }
+  out.push(chunk)
   return out
 })
 

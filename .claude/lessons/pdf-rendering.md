@@ -8,6 +8,8 @@ textkit 的 K&P 演算法規定 glue 節點前面必須是 box 才能當斷點�
 自動補 "-"。修法：頂層 `<Text>` 加 `hyphenationPenalty={10000}`（=== textkit 的
 linebreak.infinity），penalty 斷點被完全跳過，斷行回到 FEFF glue（best-fit fallback）。
 純中文段落不會重現此 bug（K&P 必定失敗直接走 fallback），驗證時必須用中英混排樣本。
+另外 FEFF 只能插在「兩個 CJK 字元之間」——若逐字元插入，「10年」「30個」這類
+數字+量詞會被從中拆行（甚至 1 和 0 之間）。
 
 ## 驗證 PDF 排版用 renderToFile + Read 工具目視
 
