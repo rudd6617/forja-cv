@@ -22,7 +22,7 @@ function safeHref(url: string | undefined): string {
 function SectionTitle({ children }: { children: string }) {
   return (
     <h3
-      className="cv-accent text-[10px] font-bold tracking-[0.15em] uppercase pb-1.5 mb-3"
+      className="cv-accent text-[12px] font-bold tracking-[0.15em] uppercase pb-1.5 mb-3"
       style={{ borderBottom: '2px solid var(--cv-accent)' }}
     >
       {children}
@@ -257,7 +257,7 @@ function Summary({ summary }: { summary: ResumeData['user']['summary'] }) {
             <HtmlContent
               key={tag}
               html={tag}
-              className="cv-accent cv-accent-bg text-[11px] font-medium px-2 py-0.5 rounded [&>p]:m-0"
+              className="cv-accent cv-accent-bg text-[12px] font-medium px-2 py-0.5 rounded [&>p]:m-0"
             />
           ))}
         </div>
@@ -304,13 +304,13 @@ function LayoutRightSidebar({ data }: { data: ResumeData }) {
       <Header about={about} />
       <Summary summary={summary} />
       <Divider />
-      <div className="flex px-10 pb-8 gap-8">
-        <div className="w-[78%]">
+      <div className="flex px-10 pb-8 gap-4">
+        <div className="w-[82%]">
           <ExperienceSection section={experience} />
           <ProjectSection section={project} />
         </div>
         <div
-          className="w-[22%] shrink-0 text-[11px] leading-snug pl-6"
+          className="w-[18%] shrink-0 text-[11px] leading-snug pl-4"
           style={{ borderLeft: '1px solid var(--cv-border)' }}
         >
           <Sidebar contact={contact} social={social} education={education} skill={skill} certificate={certificate} />
@@ -327,14 +327,14 @@ function LayoutLeftSidebar({ data }: { data: ResumeData }) {
       <Header about={about} />
       <Summary summary={summary} />
       <Divider />
-      <div className="flex px-10 pb-8 gap-8">
+      <div className="flex px-10 pb-8 gap-4">
         <div
-          className="w-[22%] shrink-0 text-[11px] leading-snug pr-6"
+          className="w-[18%] shrink-0 text-[11px] leading-snug pr-4"
           style={{ borderRight: '1px solid var(--cv-border)' }}
         >
           <Sidebar contact={contact} social={social} education={education} skill={skill} certificate={certificate} />
         </div>
-        <div className="w-[78%]">
+        <div className="w-[82%]">
           <ExperienceSection section={experience} />
           <ProjectSection section={project} />
         </div>

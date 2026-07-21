@@ -34,11 +34,11 @@ body {
 }
 
 .resume-content li.ql-indent-1 {
-  padding-left: 1.5em;
+  padding-left: 0;
 }
 
 .resume-content li.ql-indent-2 {
-  padding-left: 3em;
+  padding-left: 0;
 }
 
 .resume-content p {
